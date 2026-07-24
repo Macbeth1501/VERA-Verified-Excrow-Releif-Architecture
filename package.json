@@ -1,0 +1,20 @@
+{
+  "name": "vera-mvp",
+  "version": "1.0.0",
+  "description": "VERA MVP - $0 testnet PoC for verified escrow crowdfunding",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter ./apps/web dev",
+    "build": "pnpm --filter ./apps/web build",
+    "lint": "pnpm --filter ./apps/web lint",
+    "test": "pnpm --filter ./contracts test"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.17.0",
+      "onFail": "download"
+    }
+  }
+}
