@@ -2,18 +2,18 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {MockUSDC} from "../src/MockUSDC.sol";
+import {MockINR} from "../src/MockINR.sol";
 
-contract MockUSDCTest is Test {
-    MockUSDC internal token;
+contract MockINRTest is Test {
+    MockINR internal token;
     address internal donor = address(0xBEEF);
 
     function setUp() public {
-        token = new MockUSDC();
+        token = new MockINR();
     }
 
     function test_MintIncreasesBalance() public {
-        token.mint(donor, 100e6); // 100 mUSDC (6 decimals)
+        token.mint(donor, 100e6); // 100 mINR (6 decimals)
         assertEq(token.balanceOf(donor), 100e6);
     }
 
