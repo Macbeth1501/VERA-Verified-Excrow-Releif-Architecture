@@ -19,3 +19,9 @@ contracts/broadcast/
 # Misc
 .DS_Store
 *.log
+
+# Wallet material (contains a private key) — never commit
+docs/Main Wallet.txt
+
+# Local SQLite database
+apps/web/data/

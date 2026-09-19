@@ -8,7 +8,8 @@
     "dev": "pnpm --filter ./apps/web dev",
     "build": "pnpm --filter ./apps/web build",
     "lint": "pnpm --filter ./apps/web lint",
-    "test": "pnpm --filter ./contracts test"
+    "test": "pnpm --filter ./contracts test",
+    "test:web": "pnpm --filter ./apps/web test"
   },
   "devEngines": {
     "packageManager": {
