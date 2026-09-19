@@ -4,3 +4,7 @@ out = "out"
 libs = ["lib"]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+# SPDD §21: fund-moving functions need 10k+ fuzz runs.
+[fuzz]
+runs = 10000

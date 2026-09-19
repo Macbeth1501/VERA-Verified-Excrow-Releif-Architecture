@@ -37,6 +37,11 @@ contract CampaignFactory is Ownable {
     /// @notice The mINR token address every deployed vault will use.
     address public immutable mockToken;
 
+    /// @notice The MilestoneManager every newly deployed vault is bound to at construction.
+    ///         Each vault stores it as an immutable, so changing this only affects vaults
+    ///         created afterwards. `createCampaign` reverts until it is configured.
+    address public milestoneManager;
+
     struct CampaignRecord {
         address vault;
         address organizer;
@@ -49,6 +54,7 @@ contract CampaignFactory is Ownable {
     mapping(address => uint256[]) private _campaignIndexesByOrganizer;
 
     event OrganizerVerifiedSet(address indexed organizer, bool verified);
+    event MilestoneManagerSet(address indexed manager);
     event CampaignCreated(
         uint256 indexed campaignId,
         address indexed organizer,
@@ -61,6 +67,8 @@ contract CampaignFactory is Ownable {
     error AdminCapExceeded(uint256 requestedPct, uint256 ceilingPct);
     error MilestonesDoNotSumTo100(uint256 actualSum);
     error NoMilestones();
+    error MilestoneManagerNotConfigured();
+    error ZeroAddress();
 
     constructor(address _mockToken) Ownable(msg.sender) {
         mockToken = _mockToken;
@@ -79,13 +87,20 @@ contract CampaignFactory is Ownable {
         emit OrganizerVerifiedSet(organizer, verified);
     }
 
+    /// @notice Admin-only: sets the MilestoneManager that future vaults will be bound to.
+    function setMilestoneManager(address manager) external onlyOwner {
+        if (manager == address(0)) revert ZeroAddress();
+        milestoneManager = manager;
+        emit MilestoneManagerSet(manager);
+    }
+
     /// @notice Admin-only: adjust a category's admin-expense ceiling.
     function setCategoryAdminCeiling(CampaignCategory category, uint256 ceilingPct) external onlyOwner {
         categoryAdminCeilingPct[category] = ceilingPct;
     }
 
     /// @notice Deploys a new CampaignVault for `msg.sender` if all business rules pass.
-    /// @dev All three checks are the non-bypassable, contract-level layer of defense-in-depth
+    /// @dev The three business-rule checks are the non-bypassable, contract-level layer of defense-in-depth
     ///      (SPDD §19.2) — the API/UI layers also validate these for fast UX feedback, but
     ///      this is the check that actually matters.
     function createCampaign(
@@ -94,6 +109,7 @@ contract CampaignFactory is Ownable {
         MilestoneInput[] calldata milestones,
         uint256 adminCapPct
     ) external returns (uint256 campaignId, address vault) {
+        if (milestoneManager == address(0)) revert MilestoneManagerNotConfigured();
         if (!isVerifiedOrganizer[msg.sender]) revert OrganizerNotVerified(msg.sender);
 
         uint256 ceiling = categoryAdminCeilingPct[category];
@@ -106,7 +122,7 @@ contract CampaignFactory is Ownable {
         }
         if (sum != 100) revert MilestonesDoNotSumTo100(sum);
 
-        vault = address(new CampaignVault(mockToken, msg.sender));
+        vault = address(new CampaignVault(mockToken, msg.sender, milestoneManager));
 
         campaignId = _campaigns.length;
         _campaigns.push(

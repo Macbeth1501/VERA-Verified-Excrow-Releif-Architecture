@@ -18,6 +18,11 @@ contract Deploy is Script {
         MockINR mockINR = new MockINR();
         CampaignFactory factory = new CampaignFactory(address(mockINR));
 
+        // Vaults bind their MilestoneManager at construction, so the Factory cannot create
+        // campaigns until one is set. Optional here; can also be set later by the owner.
+        address manager = vm.envOr("MILESTONE_MANAGER", address(0));
+        if (manager != address(0)) factory.setMilestoneManager(manager);
+
         vm.stopBroadcast();
 
         console.log("MockINR deployed at:      ", address(mockINR));

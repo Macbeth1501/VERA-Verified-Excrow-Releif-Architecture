@@ -20,10 +20,10 @@ contract CampaignVault is ReentrancyGuard {
     ///         fund-transfer privileges (organizers cannot self-release funds).
     address public immutable organizer;
 
-    /// @notice The only address ever allowed to trigger a release. Set exactly once via
-    ///         `setMilestoneManager`, after MilestoneManager.sol is deployed (Step 4/11).
-    ///         Until set, `releaseForMilestone` always reverts.
-    address public milestoneManager;
+    /// @notice The only address ever allowed to trigger a release. Fixed at deploy and
+    ///         immutable: no setter exists, so no admin, organizer or third party can ever
+    ///         change it. Ref: SPDD §18.2.
+    address public immutable milestoneManager;
 
     /// @notice Running balance tracked internally for gas-cheap reads; always reconcilable
     ///         against `token.balanceOf(address(this))` (SPDD NFR-17).
@@ -33,12 +33,11 @@ contract CampaignVault is ReentrancyGuard {
     bool public paused;
 
     event DonationReceived(address indexed donor, uint256 amount, uint256 newBalance);
-    event MilestoneManagerSet(address indexed manager);
     event FreezeRaised(string reason);
     event FreezeLifted();
 
     error ZeroAmount();
-    error MilestoneManagerAlreadySet();
+    error ZeroAddress();
     error NotMilestoneManager();
     error VaultPaused();
     error InsufficientVaultBalance(uint256 requested, uint256 available);
@@ -55,19 +54,12 @@ contract CampaignVault is ReentrancyGuard {
 
     /// @param _token Address of the deployed MockINR (or any ERC-20) contract.
     /// @param _organizer Address of the verified organizer this campaign belongs to.
-    constructor(address _token, address _organizer) {
+    /// @param _milestoneManager The only address permitted to release funds. Must be non-zero.
+    constructor(address _token, address _organizer, address _milestoneManager) {
+        if (_milestoneManager == address(0)) revert ZeroAddress();
         token = IERC20(_token);
         organizer = _organizer;
-    }
-
-    /// @notice One-time wiring of the MilestoneManager after it's deployed (Step 4/11).
-    /// @dev Immutable in effect: reverts if already set. No admin override exists —
-    ///      this is what makes "only the manager can release" a permanent guarantee,
-    ///      not a policy. Ref: SPDD §18.2.
-    function setMilestoneManager(address _manager) external {
-        if (milestoneManager != address(0)) revert MilestoneManagerAlreadySet();
-        milestoneManager = _manager;
-        emit MilestoneManagerSet(_manager);
+        milestoneManager = _milestoneManager;
     }
 
     /// @notice Deposit `amount` of mINR into escrow.
@@ -95,9 +87,8 @@ contract CampaignVault is ReentrancyGuard {
     }
 
     /// @notice Releases `amount` from escrow, e.g. toward a Disbursement contract.
-    /// @dev STUB for this sub-step: MilestoneManager.sol does not exist yet (built in Step 4).
-    ///      Fully exercised by tests once Step 4/11 wires a real manager. Callable ONLY by
-    ///      the paired MilestoneManager — no admin key, including the organizer, can call this.
+    /// @dev Callable ONLY by the MilestoneManager fixed at construction — no admin key,
+    ///      including the organizer, can call this.
     ///      Ref: SPDD §18.2 ("no other address ... can call it").
     function releaseForMilestone(address to, uint256 amount)
         external

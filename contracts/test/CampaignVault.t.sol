@@ -12,10 +12,11 @@ contract CampaignVaultTest is Test {
     address internal organizer = address(0x1111);
     address internal donor = address(0x2222);
     address internal notManager = address(0x3333);
+    address internal manager = address(0x4444);
 
     function setUp() public {
         token = new MockINR();
-        vault = new CampaignVault(address(token), organizer);
+        vault = new CampaignVault(address(token), organizer, manager);
 
         token.mint(donor, 1_000e6);
         vm.prank(donor);
@@ -38,19 +39,33 @@ contract CampaignVaultTest is Test {
         vault.deposit(0);
     }
 
-    function test_SetMilestoneManagerOnce() public {
-        vault.setMilestoneManager(address(0x4444));
-        assertEq(vault.milestoneManager(), address(0x4444));
+    function test_ManagerIsFixedAtConstruction() public view {
+        assertEq(vault.milestoneManager(), manager);
+    }
 
-        vm.expectRevert(CampaignVault.MilestoneManagerAlreadySet.selector);
-        vault.setMilestoneManager(address(0x5555));
+    function test_RevertConstructorZeroManager() public {
+        vm.expectRevert(CampaignVault.ZeroAddress.selector);
+        new CampaignVault(address(token), organizer, address(0));
+    }
+
+    /// @dev Regression for the drain bug: no function exists that lets any caller change the
+    ///      manager, so a stranger can never obtain release rights.
+    function test_StrangerCannotBecomeManagerAndDrain() public {
+        vm.prank(donor);
+        vault.deposit(100e6);
+
+        (bool ok,) = address(vault).call(abi.encodeWithSignature("setMilestoneManager(address)", notManager));
+        assertFalse(ok);
+
+        vm.prank(notManager);
+        vm.expectRevert(CampaignVault.NotMilestoneManager.selector);
+        vault.releaseForMilestone(notManager, 100e6);
+        assertEq(vault.getBalance(), 100e6);
     }
 
     function test_RevertReleaseWhenCallerNotManager() public {
         vm.prank(donor);
         vault.deposit(100e6);
-
-        vault.setMilestoneManager(address(0x4444));
 
         vm.prank(notManager);
         vm.expectRevert(CampaignVault.NotMilestoneManager.selector);
@@ -60,9 +75,6 @@ contract CampaignVaultTest is Test {
     function test_ManagerCanReleaseWithinBalance() public {
         vm.prank(donor);
         vault.deposit(100e6);
-
-        address manager = address(0x4444);
-        vault.setMilestoneManager(manager);
 
         vm.prank(manager);
         vault.releaseForMilestone(donor, 40e6);

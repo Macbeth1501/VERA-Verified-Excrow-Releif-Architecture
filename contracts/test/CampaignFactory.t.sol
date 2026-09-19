@@ -27,12 +27,15 @@ contract CampaignFactoryTest is Test {
 
     address internal organizer;
     address internal donor;
+    address internal manager;
 
     function setUp() public {
         token = new MockINR();
         factory = new CampaignFactory(address(token));
         organizer = makeAddr("organizer");
         donor = makeAddr("donor");
+        manager = makeAddr("manager");
+        factory.setMilestoneManager(manager);
     }
 
     // ---------------------------------------------------------------------
@@ -140,6 +143,50 @@ contract CampaignFactoryTest is Test {
         vm.expectRevert(CampaignFactory.NoMilestones.selector);
         vm.prank(organizer);
         factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+    }
+
+    function test_Revert_ManagerNotConfigured() public {
+        CampaignFactory fresh = new CampaignFactory(address(token));
+        fresh.setOrganizerVerified(organizer, true);
+        CampaignFactory.MilestoneInput[] memory milestones = _milestones60_40();
+
+        vm.expectRevert(CampaignFactory.MilestoneManagerNotConfigured.selector);
+        vm.prank(organizer);
+        fresh.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+    }
+
+    // ---------------------------------------------------------------------
+    // Milestone manager wiring
+    // ---------------------------------------------------------------------
+
+    function test_VaultIsBoundToFactoryManager() public {
+        factory.setOrganizerVerified(organizer, true);
+        vm.prank(organizer);
+        (, address vault) =
+            factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, _milestones60_40(), 10);
+
+        assertEq(CampaignVault(vault).milestoneManager(), manager);
+    }
+
+    function test_ManagerChangeDoesNotAffectExistingVaults() public {
+        factory.setOrganizerVerified(organizer, true);
+        vm.prank(organizer);
+        (, address vault) =
+            factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, _milestones60_40(), 10);
+
+        factory.setMilestoneManager(makeAddr("manager2"));
+        assertEq(CampaignVault(vault).milestoneManager(), manager);
+    }
+
+    function test_Revert_SetManagerNotOwner() public {
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", donor));
+        vm.prank(donor);
+        factory.setMilestoneManager(donor);
+    }
+
+    function test_Revert_SetManagerZeroAddress() public {
+        vm.expectRevert(CampaignFactory.ZeroAddress.selector);
+        factory.setMilestoneManager(address(0));
     }
 
     // ---------------------------------------------------------------------
