@@ -58,21 +58,28 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             {campaign.vaultContractAddress}
           </p>
         ) : null}
-        {campaign.chainTxHash?.startsWith("0x") ? (
-          <a
-            className="mt-2 inline-block text-sm underline"
-            href={`https://amoy.polygonscan.com/address/${campaign.vaultContractAddress}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Inspect it on the public block explorer
-          </a>
-        ) : null}
-        {live ? (
-          <Link href={`/campaigns/${campaign.id}`} className="mt-3 inline-block text-sm font-medium underline">
-            View the public page
-          </Link>
-        ) : null}
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {campaign.chainTxHash?.startsWith("0x") ? (
+            <a
+              className="underline"
+              href={`https://amoy.polygonscan.com/address/${campaign.vaultContractAddress}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Inspect it on the public block explorer
+            </a>
+          ) : null}
+          {live ? (
+            <Link href={`/campaigns/${campaign.id}`} className="font-medium underline">
+              View the public page
+            </Link>
+          ) : null}
+          {live ? (
+            <Link href={`/dashboard/campaigns/${campaign.id}/beneficiaries`} className="font-medium underline">
+              Manage beneficiaries
+            </Link>
+          ) : null}
+        </div>
         {!live ? <PublishCampaignButton campaignId={campaign.id} label="Publish to the blockchain" /> : null}
       </section>
 
