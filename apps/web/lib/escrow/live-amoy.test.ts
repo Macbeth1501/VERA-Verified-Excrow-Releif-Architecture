@@ -147,6 +147,7 @@ describe.skipIf(!live)("live Amoy: publish, attest, approve, release", () => {
 
       // ---- milestone 1: below the limit, so attestors alone release it
       const a1 = await call(attestRoute.POST as never, attestors[0].cookie, { proofHash: proof }, m1);
+      if (a1.status !== 200) log(`attestation 1 failed: ${a1.status} ${JSON.stringify(a1.body)}`);
       expect(a1.body.threshold_met).toBe(false);
       expect(a1.body.milestone.state.status).toBe("Pending");
       const early = await call(releaseRoute.POST as never, org.cookie, undefined, m1);

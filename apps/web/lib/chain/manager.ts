@@ -118,11 +118,16 @@ export function createEscrowChain(): EscrowChain {
       const gasPrice = await publicClient.getGasPrice();
       const tooExpensive = gasPriceRefusal(gasPrice);
       if (tooExpensive) return { ok: false, error: tooExpensive };
-      const funded = await topUpGas(signer.address, (gas * gasPrice * 13n) / 10n, { wait: true });
+      // Fund above what the gas limit below can cost. The node checks the balance against
+      // `gasLimit * maxFeePerGas`, and viem sets maxFeePerGas higher than `getGasPrice()`
+      // (1.2x the base fee plus the priority fee), so funding exactly the limit's cost at
+      // `gasPrice` leaves no headroom and a wallet with no POL of its own is refused on its
+      // very first action. Same 1.5x / 1.2x pair as `campaigns.ts`.
+      const funded = await topUpGas(signer.address, (gas * gasPrice * 15n) / 10n, { wait: true });
       if (!funded.ok) return { ok: false, error: funded.error };
 
       const wallet = createWalletClient({ account, chain: polygonAmoy, transport: transport() });
-      hash = await wallet.writeContract({ address: manager, abi: managerAbi, functionName, args: args as never, gas: (gas * 13n) / 10n });
+      hash = await wallet.writeContract({ address: manager, abi: managerAbi, functionName, args: args as never, gas: (gas * 12n) / 10n });
       onSent(hash);
       const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
       return receipt.status === "success" ? { ok: true, txHash: hash } : { ok: false, error: "The transaction was reverted by the contract." };
