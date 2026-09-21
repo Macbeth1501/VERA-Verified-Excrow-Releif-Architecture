@@ -86,7 +86,13 @@ export function CampaignForm() {
 
       // Publishing is a separate call so a slow or failing chain never loses the campaign.
       setBusy("Publishing to the blockchain. This can take up to a minute...");
-      await fetch(`/api/v1/campaigns/${created.campaign_id}/deploy`, { method: "POST" }).catch(() => null);
+      const published = await fetch(`/api/v1/campaigns/${created.campaign_id}/deploy`, { method: "POST" }).catch(() => null);
+      if (published?.ok) {
+        // The vault exists now; register its milestones on the milestone manager so attestors can see
+        // them, as the retry button does. A failure is shown on the campaign page with its own retry.
+        setBusy("Registering the milestones...");
+        await fetch(`/api/v1/campaigns/${created.campaign_id}/milestones/define`, { method: "POST" }).catch(() => null);
+      }
       router.push(`/dashboard/campaigns/${created.campaign_id}`);
       router.refresh();
     } catch {
