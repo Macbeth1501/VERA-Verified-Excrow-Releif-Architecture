@@ -12,6 +12,7 @@ const data: DashboardData = {
   organizer: { id: "o1", legalName: "Trust", jurisdiction: "India" },
   vault: "0x6590E3D9E42EDB7e8970b9348CE457b9a2f990F7",
   escrow: { heldMinorUnits: "260000000", totalDonatedMinorUnits: "260000000", totalReleasedMinorUnits: "0", donationCount: 2, goalReachedBps: 2600 },
+  beneficiaries: { uniqueCount: 3, registry: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9" },
   milestones: [],
   ledger: [
     { id: "0xaaa:0", type: "CampaignCreated", milestoneIndex: null, blockNumber: 10, timestamp: "2026-09-19T04:30:22.000Z", txHash: "0xaaa", actor: "0xorg", amount: null },

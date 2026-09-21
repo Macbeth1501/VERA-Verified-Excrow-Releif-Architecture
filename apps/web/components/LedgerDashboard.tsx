@@ -170,6 +170,14 @@ export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardDat
             {formatMinorUnits(escrow.totalReleasedMinorUnits)} already paid out through verified milestones
           </p>
         ) : null}
+        {data.beneficiaries.registry ? (
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400" data-testid="beneficiaries">
+            {data.beneficiaries.uniqueCount} verified unique {data.beneficiaries.uniqueCount === 1 ? "beneficiary" : "beneficiaries"} ·{" "}
+            <a className="underline" href={explorerAddressUrl(data.beneficiaries.registry)} target="_blank" rel="noreferrer">
+              check the public registry
+            </a>
+          </p>
+        ) : null}
         <p className="mt-3 text-sm text-zinc-500">
           Admin costs are capped at {campaign.adminExpenseCapPct}% by the contract itself, not by policy.
         </p>

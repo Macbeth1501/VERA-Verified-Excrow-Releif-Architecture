@@ -45,6 +45,20 @@ export function released(vault: string, blockNumber: number, amount: string, ind
   };
 }
 
+export const REGISTRY = "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9";
+
+export function beneficiary(vault: string, blockNumber: number, identityHash: string, index = 0): RawEvent {
+  return {
+    name: "BeneficiaryRegistered",
+    contract: REGISTRY,
+    vault,
+    blockNumber,
+    txHash: `0xb${String(++counter).padStart(63, "0")}`,
+    logIndex: 0,
+    args: { vault, identityHash, photoHash: `0x${"0".repeat(64)}`, index: String(index) },
+  };
+}
+
 export function attested(vault: string, blockNumber: number, index = 0, attestor = "0x3333333333333333333333333333333333333333"): RawEvent {
   return {
     name: "MilestoneAttested",
@@ -91,7 +105,11 @@ export class FakeChain implements ChainReader {
   }
 
   async managerEvents(from: number, to: number) {
-    return this.read("manager", from, to, (e) => e.name !== "CampaignCreated" && e.name !== "DonationReceived");
+    return this.read("manager", from, to, (e) => e.name.startsWith("Milestone") || e.name === "CouncilApproved");
+  }
+
+  async registryEvents(from: number, to: number) {
+    return this.read("registry", from, to, (e) => e.name === "BeneficiaryRegistered");
   }
 
   async blockTimestamps(blocks: number[]) {

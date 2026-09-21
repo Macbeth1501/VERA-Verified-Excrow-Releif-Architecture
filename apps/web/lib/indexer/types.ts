@@ -1,4 +1,4 @@
-/** Events from the CampaignFactory, the vaults and the MilestoneManager. */
+/** Events from the CampaignFactory, the vaults, the MilestoneManager and the BeneficiaryRegistry. */
 export type EventName =
   | "CampaignCreated"
   | "DonationReceived"
@@ -6,7 +6,8 @@ export type EventName =
   | "MilestoneAttested"
   | "MilestoneVerified"
   | "CouncilApproved"
-  | "MilestoneReleased";
+  | "MilestoneReleased"
+  | "BeneficiaryRegistered";
 
 /** A decoded on-chain event, as read from a contract. Amounts are decimal strings. */
 export interface RawEvent {
@@ -35,6 +36,11 @@ export interface ChainReader {
    * reader without it simply indexes no milestone events.
    */
   managerEvents?(fromBlock: number, toBlock: number): Promise<RawEvent[]>;
+  /**
+   * BeneficiaryRegistered events from the BeneficiaryRegistry (each names its vault), inclusive block
+   * range. Optional: a reader without it indexes no beneficiary events.
+   */
+  registryEvents?(fromBlock: number, toBlock: number): Promise<RawEvent[]>;
   /** ISO timestamps for the given block numbers. */
   blockTimestamps(blocks: number[]): Promise<Map<number, string>>;
   /** The vault's internally tracked balance and its actual token balance at a given block. */
@@ -45,6 +51,8 @@ export interface IndexerConfig {
   startBlock: number;
   /** First block to read for the MilestoneManager; milestone events are skipped when unset. */
   managerStartBlock?: number;
+  /** First block to read for the BeneficiaryRegistry; beneficiary events are skipped when unset. */
+  registryStartBlock?: number;
   confirmations: number;
   maxRange: number;
 }

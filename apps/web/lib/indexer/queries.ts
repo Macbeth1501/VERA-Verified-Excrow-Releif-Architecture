@@ -26,6 +26,8 @@ export interface VaultTotals {
   /** What the vault should hold: donations minus releases. */
   balance: string;
   donationCount: number;
+  /** Unique beneficiaries registered on the BeneficiaryRegistry for this vault, from indexed events. */
+  beneficiaryCount: number;
   /** Highest block this vault has been indexed through, or null if never indexed. */
   indexedThroughBlock: number | null;
 }
@@ -38,14 +40,23 @@ const ACTOR_KEY: Partial<Record<EventName, string>> = {
   MilestoneReleased: "recipient",
 };
 
+/** Events whose `index` argument is a milestone's position (a beneficiary's `index` is not). */
+const MILESTONE_EVENTS: ReadonlySet<EventName> = new Set([
+  "MilestoneDefined", "MilestoneAttested", "MilestoneVerified", "CouncilApproved", "MilestoneReleased",
+]);
+
+/**
+ * The money-and-milestone trail. Beneficiary registrations are counted (`vaultTotals`) but not listed:
+ * each fingerprint is already public on the registry, and the ledger's columns are for actors and amounts.
+ */
 export function vaultLedger(db: Db, vault: string): LedgerEntry[] {
-  return eventsForVault(db, vault).map((e) => {
+  return eventsForVault(db, vault).filter((e) => e.eventName !== "BeneficiaryRegistered").map((e) => {
     const args = JSON.parse(e.args) as Record<string, string>;
     const hasAmount = e.eventName === "DonationReceived" || e.eventName === "MilestoneReleased";
     return {
       id: e.id,
       type: e.eventName,
-      milestoneIndex: args.index !== undefined ? Number(args.index) : null,
+      milestoneIndex: MILESTONE_EVENTS.has(e.eventName) && args.index !== undefined ? Number(args.index) : null,
       blockNumber: e.blockNumber,
       timestamp: e.blockTimestamp,
       txHash: e.txHash,
@@ -68,6 +79,7 @@ export function vaultTotals(db: Db, vault: string): VaultTotals {
     totalReleased: released.toString(),
     balance: (donated - released).toString(),
     donationCount: events.filter((e) => e.eventName === "DonationReceived").length,
+    beneficiaryCount: events.filter((e) => e.eventName === "BeneficiaryRegistered").length,
     indexedThroughBlock: cursor?.lastBlock ?? null,
   };
 }

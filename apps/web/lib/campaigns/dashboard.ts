@@ -27,6 +27,12 @@ export interface DashboardData {
     /** Progress toward the goal in basis points (10000 = 100%); may exceed 10000. */
     goalReachedBps: number;
   };
+  /**
+   * Beneficiaries registered for this campaign, counted from indexed BeneficiaryRegistered events. The
+   * registry reverts on a repeat, so each is a distinct fingerprint. `registry` is its address, when
+   * configured, so anyone can check the count themselves; the fingerprints hold no identity data.
+   */
+  beneficiaries: { uniqueCount: number; registry: string | null };
   milestones: CampaignWithMilestones["milestones"];
   ledger: LedgerEntry[];
   indexer: {
@@ -100,6 +106,7 @@ export async function buildDashboard(
       donationCount: totals.donationCount,
       goalReachedBps: goalReachedBps(donated, BigInt(campaign.fundingGoalMinorUnits)),
     },
+    beneficiaries: { uniqueCount: totals.beneficiaryCount, registry: runtime?.registryAddress ?? null },
     milestones: campaign.milestones,
     ledger: vaultLedger(db, vault),
     indexer: {

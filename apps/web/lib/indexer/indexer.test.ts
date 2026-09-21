@@ -3,7 +3,7 @@ import { createDb, type Db } from "../db";
 import { indexerStatus, reconcileVault, vaultLedger, vaultTotals } from "./queries";
 import { allCursors } from "./store";
 import { syncOnce } from "./sync";
-import { FakeChain, VAULT_A, VAULT_B, attested, created, donation, released } from "./fake-chain";
+import { FakeChain, VAULT_A, VAULT_B, attested, beneficiary, created, donation, released } from "./fake-chain";
 
 const config = { startBlock: 100, confirmations: 2, maxRange: 2000 };
 let db: Db;
@@ -221,5 +221,77 @@ describe("milestone events (Step 4 manager)", () => {
     await syncOnce(db, chain, withManager);
     await syncOnce(db, chain, withManager);
     expect(vaultTotals(db, VAULT_A).balance).toBe("60");
+  });
+});
+
+describe("beneficiary events (Step 13 registry)", () => {
+  const withRegistry = { ...config, registryStartBlock: 100 };
+  const H = (n: number) => `0x${n.toString(16).padStart(2, "0").repeat(32)}`;
+
+  it("counts each registered beneficiary for its own campaign", async () => {
+    chain.events = [
+      created(VAULT_A, 150),
+      created(VAULT_B, 151),
+      beneficiary(VAULT_A, 200, H(1)),
+      beneficiary(VAULT_A, 201, H(2), 1),
+      beneficiary(VAULT_B, 202, H(3)),
+    ];
+    await syncOnce(db, chain, withRegistry);
+
+    expect(vaultTotals(db, VAULT_A).beneficiaryCount).toBe(2);
+    expect(vaultTotals(db, VAULT_B).beneficiaryCount).toBe(1);
+  });
+
+  it("does not count one twice when the same range is read again", async () => {
+    chain.events = [created(VAULT_A, 150), beneficiary(VAULT_A, 200, H(1))];
+    await syncOnce(db, chain, withRegistry);
+    const second = await syncOnce(db, chain, withRegistry);
+
+    expect(second.newEvents).toBe(0);
+    expect(vaultTotals(db, VAULT_A).beneficiaryCount).toBe(1);
+  });
+
+  it("ignores the registry entirely when no start block is configured", async () => {
+    chain.events = [created(VAULT_A, 150), beneficiary(VAULT_A, 200, H(1))];
+    await syncOnce(db, chain, config);
+
+    expect(vaultTotals(db, VAULT_A).beneficiaryCount).toBe(0);
+    expect(allCursors(db).map((c) => c.stream)).not.toContain("registry");
+  });
+
+  it("keeps fingerprints out of the ledger and never treats one as a milestone", async () => {
+    chain.events = [created(VAULT_A, 150), beneficiary(VAULT_A, 200, H(1), 7), donation(VAULT_A, 210, "250000000")];
+    await syncOnce(db, chain, withRegistry);
+
+    const ledger = vaultLedger(db, VAULT_A);
+    expect(ledger.map((e) => e.type)).toEqual(["CampaignCreated", "DonationReceived"]);
+    expect(JSON.stringify(ledger)).not.toContain(H(1));
+    expect(ledger.every((e) => e.milestoneIndex === null)).toBe(true);
+  });
+
+  it("leaves the money figures and reconciliation untouched", async () => {
+    chain.events = [created(VAULT_A, 150), donation(VAULT_A, 200, "250000000"), beneficiary(VAULT_A, 205, H(1))];
+    chain.balances.set(VAULT_A, { tracked: 250000000n, token: 250000000n });
+    await syncOnce(db, chain, withRegistry);
+
+    const totals = vaultTotals(db, VAULT_A);
+    expect([totals.totalDonated, totals.balance, totals.donationCount]).toEqual(["250000000", "250000000", 1]);
+    expect((await reconcileVault(db, chain, VAULT_A))?.match).toBe(true);
+  });
+
+  it("counts a milestone release and a beneficiary registration separately", async () => {
+    chain.events = [
+      created(VAULT_A, 150),
+      donation(VAULT_A, 200, "250000000"),
+      beneficiary(VAULT_A, 205, H(1)),
+      released(VAULT_A, 210, "150000000"),
+      attested(VAULT_A, 208),
+    ];
+    await syncOnce(db, chain, { ...withRegistry, managerStartBlock: 100 });
+
+    const totals = vaultTotals(db, VAULT_A);
+    expect(totals.totalReleased).toBe("150000000");
+    expect(totals.beneficiaryCount).toBe(1);
+    expect(vaultLedger(db, VAULT_A).filter((e) => e.type === "MilestoneAttested")).toHaveLength(1);
   });
 });

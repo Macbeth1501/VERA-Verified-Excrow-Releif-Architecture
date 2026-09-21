@@ -143,6 +143,7 @@ export const chainEvents = sqliteTable("chain_events", {
       "MilestoneVerified",
       "CouncilApproved",
       "MilestoneReleased",
+      "BeneficiaryRegistered",
     ],
   }).notNull(),
   /** Contract that emitted the event. */

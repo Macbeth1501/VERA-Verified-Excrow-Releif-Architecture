@@ -7,6 +7,8 @@ import type { ChainReader, IndexerConfig } from "./types";
 export interface IndexerRuntime {
   reader: ChainReader;
   config: IndexerConfig;
+  /** The BeneficiaryRegistry, when configured: lets the public page link to it for independent checks. */
+  registryAddress?: string;
 }
 
 /**
@@ -17,10 +19,12 @@ export function indexerRuntime(): IndexerRuntime | null {
   const env = getEnv();
   if (!env.FACTORY_ADDRESS || env.INDEXER_START_BLOCK === undefined) return null;
   return {
-    reader: createChainReader(env.FACTORY_ADDRESS, env.MILESTONE_MANAGER_ADDRESS),
+    reader: createChainReader(env.FACTORY_ADDRESS, env.MILESTONE_MANAGER_ADDRESS, env.BENEFICIARY_REGISTRY_ADDRESS),
+    registryAddress: env.BENEFICIARY_REGISTRY_ADDRESS,
     config: {
       startBlock: env.INDEXER_START_BLOCK,
       managerStartBlock: env.MILESTONE_MANAGER_ADDRESS ? env.MANAGER_START_BLOCK : undefined,
+      registryStartBlock: env.BENEFICIARY_REGISTRY_ADDRESS ? env.REGISTRY_START_BLOCK : undefined,
       confirmations: env.INDEXER_CONFIRMATIONS,
       maxRange: env.INDEXER_MAX_RANGE,
     },

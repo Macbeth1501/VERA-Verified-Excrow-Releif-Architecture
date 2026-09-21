@@ -80,6 +80,8 @@ const schema = z.object({
    * organizer's gas) beneficiaries can be registered; without it the feature says it is switched off.
    */
   BENEFICIARY_REGISTRY_ADDRESS: address().optional(),
+  /** The block the registry was deployed in: with it, the indexer reads its events for the public count. */
+  REGISTRY_START_BLOCK: optionalInt(0),
   /** Only read blocks at least this deep, so a shallow reorg cannot leave phantom events. */
   INDEXER_CONFIRMATIONS: optionalInt(0).default(2),
   /** Largest block range per getLogs call; shrinks automatically if an RPC refuses it. */

@@ -86,6 +86,14 @@ export async function syncOnce(db: Db, reader: ChainReader, config: IndexerConfi
     );
   }
 
+  if (config.registryStartBlock !== undefined && reader.registryEvents) {
+    const registryEvents = reader.registryEvents.bind(reader);
+    newEvents += await syncStream(
+      db, reader, "registry", config.registryStartBlock - 1, safeBlock, config.maxRange,
+      (from, to) => registryEvents(from, to), errors,
+    );
+  }
+
   for (const { vault, createdAtBlock } of knownVaults(db)) {
     newEvents += await syncStream(
       db, reader, `vault:${vault}`, createdAtBlock - 1, safeBlock, config.maxRange,

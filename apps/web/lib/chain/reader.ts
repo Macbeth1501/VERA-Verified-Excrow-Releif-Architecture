@@ -17,6 +17,9 @@ const managerEvents = [
   parseAbiItem("event CouncilApproved(address indexed vault, uint256 indexed index, address indexed member)"),
   parseAbiItem("event MilestoneReleased(address indexed vault, uint256 indexed index, address indexed recipient, uint256 amount)"),
 ] as const;
+const beneficiaryRegistered = parseAbiItem(
+  "event BeneficiaryRegistered(address indexed vault, bytes32 indexed identityHash, bytes32 photoHash, uint256 index)",
+);
 
 /** Timestamp lookups are fetched a few at a time so a busy range does not flood a public RPC. */
 const TIMESTAMP_BATCH = 5;
@@ -25,7 +28,7 @@ const TIMESTAMP_BATCH = 5;
  * The real chain reader for the indexer: public events from the CampaignFactory and its vaults,
  * read directly over RPC with the same ordered fallback list as everything else (SPDD 7.3).
  */
-export function createChainReader(factoryAddress: string, managerAddress?: string): ChainReader {
+export function createChainReader(factoryAddress: string, managerAddress?: string, registryAddress?: string): ChainReader {
   const env = getEnv();
   const client = createPublicClient({
     chain: polygonAmoy,
@@ -104,6 +107,30 @@ export function createChainReader(factoryAddress: string, managerAddress?: strin
           args: Object.fromEntries(Object.entries(args).map(([k, v]) => [k, String(v)])),
         };
       });
+    },
+
+    async registryEvents(fromBlock, toBlock) {
+      if (!registryAddress) return [];
+      const logs = await client.getLogs({
+        address: registryAddress as `0x${string}`,
+        event: beneficiaryRegistered,
+        fromBlock: BigInt(fromBlock),
+        toBlock: BigInt(toBlock),
+      });
+      return logs.map<RawEvent>((log) => ({
+        name: "BeneficiaryRegistered",
+        contract: log.address,
+        vault: log.args.vault ?? "",
+        blockNumber: Number(log.blockNumber),
+        txHash: log.transactionHash,
+        logIndex: log.logIndex,
+        args: {
+          vault: log.args.vault ?? "",
+          identityHash: log.args.identityHash ?? "",
+          photoHash: log.args.photoHash ?? "",
+          index: String(log.args.index),
+        },
+      }));
     },
 
     async blockTimestamps(blocks) {
