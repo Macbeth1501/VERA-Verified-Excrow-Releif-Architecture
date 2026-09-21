@@ -75,6 +75,11 @@ const schema = z.object({
    */
   MILESTONE_MANAGER_ADDRESS: address().optional(),
   MANAGER_START_BLOCK: optionalInt(0),
+  /**
+   * The BeneficiaryRegistry (Step 13). With the address set (and FACTORY_OWNER_KEY, which sponsors the
+   * organizer's gas) beneficiaries can be registered; without it the feature says it is switched off.
+   */
+  BENEFICIARY_REGISTRY_ADDRESS: address().optional(),
   /** Only read blocks at least this deep, so a shallow reorg cannot leave phantom events. */
   INDEXER_CONFIRMATIONS: optionalInt(0).default(2),
   /** Largest block range per getLogs call; shrinks automatically if an RPC refuses it. */

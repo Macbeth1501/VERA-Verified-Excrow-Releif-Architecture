@@ -270,3 +270,51 @@ export const milestoneActions = sqliteTable(
 );
 
 export type MilestoneActionRow = typeof milestoneActions.$inferSelect;
+
+/**
+ * CAMPAIGN_SALTS: the random per-campaign ("program") salt that beneficiary fingerprints are hashed
+ * with in the browser (SPDD 17.2). It lives in its own table, not as a column on `campaigns`, because
+ * routes return campaign rows wholesale and the salt must only ever be handed to the campaign's
+ * organizer. One row per campaign, created on first use so older campaigns get one too.
+ */
+export const campaignSalts = sqliteTable("campaign_salts", {
+  campaignId: text("campaign_id")
+    .primaryKey()
+    .references(() => campaigns.id),
+  salt: text("salt").notNull(),
+});
+
+/**
+ * BENEFICIARIES (SPDD 11.2, FR-IDN-03). `identityHash` is a client-side salted SHA-256 (0x plus 64
+ * hex): the platform never receives or stores raw beneficiary PII. The unique index is the database
+ * half of defence in depth; BeneficiaryRegistry re-checks it on-chain. `chainStatus` follows the
+ * same rule as milestone actions: the hash is saved before waiting, and an unknown outcome stays PENDING.
+ */
+export const beneficiaries = sqliteTable(
+  "beneficiaries",
+  {
+    id: text("id").primaryKey(),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => campaigns.id),
+    identityHash: text("identity_hash").notNull(),
+    /** Optional fingerprint of a photo; the photo itself is never uploaded. */
+    photoHash: text("photo_hash"),
+    /** Provider-agnostic label for the simulated off-ramp (e.g. "bank transfer"). */
+    payoutMethod: text("payout_method").notNull(),
+    registeredByUserId: text("registered_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    chainStatus: text("chain_status", { enum: ["PENDING", "CONFIRMED", "FAILED"] })
+      .notNull()
+      .default("PENDING"),
+    chainTxHash: text("chain_tx_hash"),
+    chainError: text("chain_error"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  },
+  (t) => [uniqueIndex("beneficiaries_once").on(t.campaignId, t.identityHash)],
+);
+
+export type BeneficiaryRow = typeof beneficiaries.$inferSelect;
