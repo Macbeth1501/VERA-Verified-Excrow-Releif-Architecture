@@ -2,15 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { sha256HexOfFile } from "@/lib/hash";
 
 type FieldErrors = Record<string, string[] | undefined>;
-
-async function sha256Hex(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 export function OrganizerApplyForm() {
   const router = useRouter();
@@ -26,7 +20,7 @@ export function OrganizerApplyForm() {
     const file = e.target.files?.[0];
     if (!file) return setDocument(null);
     // The file never leaves the browser: only its fingerprint is sent.
-    setDocument({ name: file.name, hash: await sha256Hex(file) });
+    setDocument({ name: file.name, hash: await sha256HexOfFile(file) });
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {

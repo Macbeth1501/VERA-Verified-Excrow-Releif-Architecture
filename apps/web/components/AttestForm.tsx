@@ -2,11 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { sha256HexOfFile } from "@/lib/hash";
 
 /** SHA-256 of the file, in the browser, as 0x plus 64 hex characters. The file itself is never uploaded. */
 async function hashFile(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  return `0x${[...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  return `0x${await sha256HexOfFile(file)}`;
 }
 
 /**
