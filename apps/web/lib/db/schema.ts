@@ -319,3 +319,50 @@ export const beneficiaries = sqliteTable(
 );
 
 export type BeneficiaryRow = typeof beneficiaries.$inferSelect;
+
+/**
+ * DISBURSEMENTS (SPDD 18.4, FR-ESC-02): the simulated payout of a released milestone to one
+ * registered beneficiary. UNIQUE on `milestone_id`, the database half of "a milestone is paid once";
+ * the Disbursement contract re-checks it. A record of the request and its two transactions (the
+ * organizer's token approval, then the payout); the money figures that matter come from the chain.
+ * Same rule as milestone actions: each hash is saved before waiting, and an unknown outcome stays
+ * PENDING. `payoutReference` is the simulated off-ramp reference; only its hash goes on-chain.
+ */
+export const disbursements = sqliteTable("disbursements", {
+  id: text("id").primaryKey(),
+  milestoneId: text("milestone_id")
+    .notNull()
+    .unique()
+    .references(() => milestones.id),
+  campaignId: text("campaign_id")
+    .notNull()
+    .references(() => campaigns.id),
+  beneficiaryId: text("beneficiary_id")
+    .notNull()
+    .references(() => beneficiaries.id),
+  /** Copied from the beneficiary: what the contract is called with. */
+  identityHash: text("identity_hash").notNull(),
+  /** mINR minor units (6 decimals), as a string. */
+  amountMinorUnits: text("amount_minor_units").notNull(),
+  payoutReference: text("payout_reference").notNull(),
+  /** keccak256 of `payoutReference`: the `payoutRef` in the PayoutRecorded event. */
+  payoutRefHash: text("payout_ref_hash").notNull(),
+  requestedByUserId: text("requested_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  status: text("status", { enum: ["PENDING", "CONFIRMED", "FAILED"] })
+    .notNull()
+    .default("PENDING"),
+  approveTxHash: text("approve_tx_hash"),
+  /** The `disburse` transaction. */
+  txHash: text("tx_hash"),
+  error: text("error"),
+  /** Epoch ms until which one request owns this payout; stops two requests sending its transactions twice. */
+  lockedUntil: integer("locked_until").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  confirmedAt: text("confirmed_at"),
+});
+
+export type DisbursementRow = typeof disbursements.$inferSelect;

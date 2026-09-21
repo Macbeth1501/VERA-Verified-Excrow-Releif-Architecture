@@ -82,6 +82,11 @@ const schema = z.object({
   BENEFICIARY_REGISTRY_ADDRESS: address().optional(),
   /** The block the registry was deployed in: with it, the indexer reads its events for the public count. */
   REGISTRY_START_BLOCK: optionalInt(0),
+  /**
+   * The Disbursement contract (Step 14). With the address set (and FACTORY_OWNER_KEY, which sponsors the
+   * organizer's gas) an organizer can record the simulated payout of a released milestone.
+   */
+  DISBURSEMENT_ADDRESS: address().optional(),
   /** Only read blocks at least this deep, so a shallow reorg cannot leave phantom events. */
   INDEXER_CONFIRMATIONS: optionalInt(0).default(2),
   /** Largest block range per getLogs call; shrinks automatically if an RPC refuses it. */
