@@ -1,6 +1,6 @@
 import type { Db } from "../db";
 import { freshness, type Freshness } from "../indexer/freshness";
-import { indexerStatus, reconcileVault, vaultLedger, vaultTotals, type LedgerEntry } from "../indexer/queries";
+import { indexerStatus, reconcileVault, vaultLedger, vaultPayouts, vaultTotals, type LedgerEntry, type PayoutEntry } from "../indexer/queries";
 import { syncIfStale, type IndexerRuntime } from "../indexer/runtime";
 import { getPublicProfile } from "../organizers/service";
 import { getCampaign, type CampaignWithMilestones } from "./service";
@@ -33,6 +33,12 @@ export interface DashboardData {
    * configured, so anyone can check the count themselves; the fingerprints hold no identity data.
    */
   beneficiaries: { uniqueCount: number; registry: string | null };
+  /**
+   * Payouts to beneficiaries (FR-ESC-02), from indexed PayoutRecorded events: every one is a public
+   * line item naming the milestone, the amount, the beneficiary's fingerprint and the hash of the
+   * off-ramp reference. `contract` is the Disbursement address when configured, so anyone can check.
+   */
+  payouts: { entries: PayoutEntry[]; totalMinorUnits: string; contract: string | null };
   milestones: CampaignWithMilestones["milestones"];
   ledger: LedgerEntry[];
   indexer: {
@@ -46,6 +52,11 @@ export interface DashboardData {
     /** "match" only if the indexed total equals both the vault's accounting and the token balance. */
     status: "match" | "mismatch" | "unavailable" | "not_checked";
     checkedAtBlock: number | null;
+    /**
+     * Payouts never exceed releases and equal the payout contract's own total. "not_checked" when no
+     * payout contract is configured (payouts <= releases is still part of `status`).
+     */
+    payouts: "match" | "mismatch" | "not_checked";
   };
   generatedAt: string;
 }
@@ -74,13 +85,20 @@ export async function buildDashboard(
   const totals = vaultTotals(db, vault);
   const donated = BigInt(totals.totalDonated);
 
-  let reconciliation: DashboardData["reconciliation"] = { status: "not_checked", checkedAtBlock: null };
+  let reconciliation: DashboardData["reconciliation"] = { status: "not_checked", checkedAtBlock: null, payouts: "not_checked" };
   if (runtime) {
     try {
-      const row = await reconcileVault(db, runtime.reader, vault);
-      if (row) reconciliation = { status: row.match ? "match" : "mismatch", checkedAtBlock: row.checkedAtBlock };
+      const row = await reconcileVault(db, runtime.reader, vault, runtime.config.disbursementStartBlock);
+      if (row) {
+        const payoutsOk = row.payouts.withinReleases && row.payouts.match !== false;
+        reconciliation = {
+          status: row.match ? "match" : "mismatch",
+          checkedAtBlock: row.checkedAtBlock,
+          payouts: !payoutsOk ? "mismatch" : row.payouts.match === null ? "not_checked" : "match",
+        };
+      }
     } catch {
-      reconciliation = { status: "unavailable", checkedAtBlock: null };
+      reconciliation = { status: "unavailable", checkedAtBlock: null, payouts: "not_checked" };
     }
   }
 
@@ -107,6 +125,7 @@ export async function buildDashboard(
       goalReachedBps: goalReachedBps(donated, BigInt(campaign.fundingGoalMinorUnits)),
     },
     beneficiaries: { uniqueCount: totals.beneficiaryCount, registry: runtime?.registryAddress ?? null },
+    payouts: { entries: vaultPayouts(db, vault), totalMinorUnits: totals.totalPaidOut, contract: runtime?.disbursementAddress ?? null },
     milestones: campaign.milestones,
     ledger: vaultLedger(db, vault),
     indexer: {

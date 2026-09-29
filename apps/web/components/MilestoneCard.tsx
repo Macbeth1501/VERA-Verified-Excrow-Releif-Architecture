@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { formatMinorUnits } from "@/lib/campaigns/money";
 import type { MilestoneView } from "@/lib/escrow/service";
 import { ActionButton } from "./ActionButton";
@@ -16,11 +17,14 @@ export function MilestoneCard({
   view,
   mode,
   actedByMe = false,
+  releasedSlot,
 }: {
   view: MilestoneView;
   mode: CardMode;
   /** The viewer already has a confirmed action of this kind on this milestone. */
   actedByMe?: boolean;
+  /** Shown under a released milestone, e.g. the organizer's "record payout" form. */
+  releasedSlot?: ReactNode;
 }) {
   const s = view.state;
   const overLimit = s ? BigInt(s.releasableAmount) > BigInt(s.autoReleaseLimit) : false;
@@ -61,6 +65,14 @@ export function MilestoneCard({
               {view.actions.map((a, i) => (
                 <li key={i}>
                   {KIND_LABEL[a.kind]} <span className="font-mono">{a.actorAddress.slice(0, 8)}…</span> ({a.status.toLowerCase()})
+                  {a.evidenceDocumentId ? (
+                    <>
+                      {" "}
+                      <a href={`/api/v1/documents/${a.evidenceDocumentId}`} target="_blank" rel="noreferrer" className="underline">
+                        view evidence
+                      </a>
+                    </>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -80,6 +92,7 @@ export function MilestoneCard({
             <ActionButton url={`/api/v1/milestones/${view.id}/release`} label="Release the money" busyLabel="Releasing on the blockchain..." tone="primary" />
           ) : null}
           {s.status === "Released" ? <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">Released to the organizer.</p> : null}
+          {s.status === "Released" ? releasedSlot : null}
         </>
       )}
     </li>

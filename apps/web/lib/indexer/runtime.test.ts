@@ -9,7 +9,11 @@ import { indexerRuntime } from "./runtime";
 const FACTORY = "0x6931E776da5db1D9e5890407FE268705D70740bD";
 const MANAGER = "0xe6d7222dDe3eE4b9688269427631aDF49229e747";
 const REGISTRY = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
-const KEYS = ["FACTORY_ADDRESS", "INDEXER_START_BLOCK", "MILESTONE_MANAGER_ADDRESS", "MANAGER_START_BLOCK", "BENEFICIARY_REGISTRY_ADDRESS", "REGISTRY_START_BLOCK"];
+const DISBURSEMENT = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853";
+const KEYS = [
+  "FACTORY_ADDRESS", "INDEXER_START_BLOCK", "MILESTONE_MANAGER_ADDRESS", "MANAGER_START_BLOCK",
+  "BENEFICIARY_REGISTRY_ADDRESS", "REGISTRY_START_BLOCK", "DISBURSEMENT_ADDRESS", "DISBURSEMENT_START_BLOCK",
+];
 const saved = { ...process.env };
 
 beforeEach(() => {
@@ -58,6 +62,20 @@ describe("indexerRuntime", () => {
     expect(runtime?.config.registryStartBlock).toBe(300);
     expect(runtime?.registryAddress).toBe(REGISTRY);
     expect(runtime?.reader.registryEvents).toBeTypeOf("function");
+    expect(runtime?.config.disbursementStartBlock).toBeUndefined();
+  });
+
+  it("wires the payout stream once the Disbursement address and start block are set", () => {
+    process.env.FACTORY_ADDRESS = FACTORY;
+    process.env.INDEXER_START_BLOCK = "100";
+    process.env.DISBURSEMENT_ADDRESS = DISBURSEMENT;
+    process.env.DISBURSEMENT_START_BLOCK = "400";
+    resetEnvCache();
+    const runtime = indexerRuntime();
+    expect(runtime?.config.disbursementStartBlock).toBe(400);
+    expect(runtime?.disbursementAddress).toBe(DISBURSEMENT);
+    expect(runtime?.reader.disbursementEvents).toBeTypeOf("function");
+    expect(runtime?.reader.disbursedTotalAt).toBeTypeOf("function");
   });
 
   it("ignores a start block whose contract address is not configured", () => {
@@ -65,9 +83,11 @@ describe("indexerRuntime", () => {
     process.env.INDEXER_START_BLOCK = "100";
     process.env.MANAGER_START_BLOCK = "200";
     process.env.REGISTRY_START_BLOCK = "300";
+    process.env.DISBURSEMENT_START_BLOCK = "400";
     resetEnvCache();
     const runtime = indexerRuntime();
     expect(runtime?.config.managerStartBlock).toBeUndefined();
     expect(runtime?.config.registryStartBlock).toBeUndefined();
+    expect(runtime?.config.disbursementStartBlock).toBeUndefined();
   });
 });

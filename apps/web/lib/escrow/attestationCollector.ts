@@ -1,6 +1,7 @@
 import type { PublicUser } from "../auth/users";
 import type { Db } from "../db";
 import type { MilestoneActionRow } from "../db/schema";
+import { saveDocument } from "../files/service";
 import type { EscrowChain } from "./chain-port";
 import {
   fail,
@@ -46,6 +47,7 @@ export async function submitAttestation(
   user: PublicUser,
   milestoneId: string,
   proofHash: string,
+  evidence?: { data: string; mimeType: string; name: string },
 ): Promise<Outcome<{ action: MilestoneActionRow; milestone: MilestoneView }>> {
   if (user.role !== "attestor" || !roleIsSynced(db, user.id, "attestor")) {
     return fail(403, "ROLE_NOT_SYNCED", "You are not a registered attestor on the blockchain yet. Ask an admin to sync your role.");
@@ -58,11 +60,28 @@ export async function submitAttestation(
   const signer = signerFor(db, user);
   if (!signer) return noSigner();
 
+  let evidenceDocumentId: string | undefined;
+  if (evidence) {
+    try {
+      evidenceDocumentId = saveDocument(db, {
+        purpose: "milestone_evidence",
+        filename: evidence.name,
+        mimeType: evidence.mimeType,
+        base64Data: evidence.data,
+        expectedHash: proofHash,
+        uploadedByUserId: user.id,
+      });
+    } catch (err) {
+      return fail(400, "VALIDATION_FAILED", err instanceof Error ? err.message : "Could not save the evidence file.");
+    }
+  }
+
   const result = await performAction(db, chain, {
     milestoneId,
     kind: "attestation",
     user,
     proofHash,
+    evidenceDocumentId,
     send: (onSent) => chain.submitAttestation(signer, prepared.ctx.vault, prepared.ctx.milestone.sequenceOrder, proofHash, onSent),
   });
   if (!result.ok) return result;

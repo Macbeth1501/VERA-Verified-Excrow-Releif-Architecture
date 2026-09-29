@@ -252,6 +252,7 @@ export async function performAction(
     kind: ActionKind;
     user: Pick<PublicUser, "id" | "walletAddress">;
     proofHash?: string;
+    evidenceDocumentId?: string;
     send: (onSent: (hash: string) => void) => Promise<Tx>;
   },
 ): Promise<Outcome<{ action: MilestoneActionRow }>> {
@@ -279,7 +280,10 @@ export async function performAction(
   const id = existing?.id ?? randomUUID();
   if (existing) {
     db.update(milestoneActions)
-      .set({ status: "PENDING", txHash: null, error: null, proofHash: input.proofHash ?? null })
+      .set({
+        status: "PENDING", txHash: null, error: null,
+        proofHash: input.proofHash ?? null, evidenceDocumentId: input.evidenceDocumentId ?? null,
+      })
       .where(key)
       .run();
   } else {
@@ -287,6 +291,7 @@ export async function performAction(
       .values({
         id, milestoneId: input.milestoneId, kind: input.kind, actorUserId: input.user.id,
         actorAddress: address, proofHash: input.proofHash ?? null,
+        evidenceDocumentId: input.evidenceDocumentId ?? null,
       })
       .run();
   }
@@ -316,6 +321,7 @@ export interface ActionView {
   actorAddress: string;
   txHash: string | null;
   createdAt: string;
+  evidenceDocumentId: string | null;
 }
 
 export interface MilestoneView {
@@ -344,7 +350,10 @@ export async function viewMilestone(db: Db, chain: EscrowChain, ctx: MilestoneCo
     .where(eq(milestoneActions.milestoneId, m.id))
     .orderBy(asc(milestoneActions.createdAt))
     .all()
-    .map((a) => ({ kind: a.kind, status: a.status, actorAddress: a.actorAddress, txHash: a.txHash, createdAt: a.createdAt }));
+    .map((a) => ({
+      kind: a.kind, status: a.status, actorAddress: a.actorAddress, txHash: a.txHash, createdAt: a.createdAt,
+      evidenceDocumentId: a.evidenceDocumentId,
+    }));
   return {
     id: m.id,
     campaignId: campaign.id,

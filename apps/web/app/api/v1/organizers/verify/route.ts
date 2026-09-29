@@ -2,6 +2,7 @@ import { apiError } from "@/lib/api/errors";
 import { readJson, requireUser } from "@/lib/api/guards";
 import { allow } from "@/lib/api/rate-limit";
 import { getDb } from "@/lib/db";
+import { DocumentHashMismatchError, DocumentTooLargeError, DocumentTypeNotAllowedError } from "@/lib/files/service";
 import { AlreadyAppliedError, submitApplication } from "@/lib/organizers/service";
 import { applicationSchema } from "@/lib/organizers/validation";
 
@@ -31,6 +32,9 @@ export async function POST(request: Request) {
     if (err instanceof AlreadyAppliedError) {
       return apiError(409, "ALREADY_APPLIED", err.message, { kyb_status: err.status });
     }
+    if (err instanceof DocumentTooLargeError) return apiError(400, "DOCUMENT_TOO_LARGE", err.message);
+    if (err instanceof DocumentTypeNotAllowedError) return apiError(400, "DOCUMENT_TYPE_NOT_ALLOWED", err.message);
+    if (err instanceof DocumentHashMismatchError) return apiError(400, "DOCUMENT_HASH_MISMATCH", err.message);
     console.error(JSON.stringify({ event: "kyb_submit_failed", message: err instanceof Error ? err.message : "unknown" }));
     return apiError(500, "INTERNAL_ERROR", "Something went wrong submitting your application.");
   }

@@ -13,13 +13,14 @@ const data: DashboardData = {
   vault: "0x6590E3D9E42EDB7e8970b9348CE457b9a2f990F7",
   escrow: { heldMinorUnits: "260000000", totalDonatedMinorUnits: "260000000", totalReleasedMinorUnits: "0", donationCount: 2, goalReachedBps: 2600 },
   beneficiaries: { uniqueCount: 3, registry: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9" },
+  payouts: { entries: [], totalMinorUnits: "0", contract: null },
   milestones: [],
   ledger: [
     { id: "0xaaa:0", type: "CampaignCreated", milestoneIndex: null, blockNumber: 10, timestamp: "2026-09-19T04:30:22.000Z", txHash: "0xaaa", actor: "0xorg", amount: null },
     { id: "0xbbb:0", type: "DonationReceived", milestoneIndex: null, blockNumber: 20, timestamp: "2026-09-19T04:31:02.000Z", txHash: "0xbbb", actor: "0xdonor", amount: "250500000" },
   ],
   indexer: { configured: true, dataAsOfBlock: 100, headBlock: 102, lagBlocks: 2, freshness: "current" },
-  reconciliation: { status: "match", checkedAtBlock: 100 },
+  reconciliation: { status: "match", checkedAtBlock: 100, payouts: "not_checked" },
   generatedAt: "2026-09-19T05:00:00.000Z",
 };
 
@@ -50,12 +51,30 @@ describe("freshness", () => {
 describe("CSV export", () => {
   it("has a header, one row per event, exact rupee amounts and explorer links", () => {
     const lines = ledgerToCsv(data).trim().split("\r\n");
-    expect(lines[0]).toBe("timestamp_utc,block,event,tx_hash,address,amount_minor_units,amount_inr,explorer_tx_url");
+    expect(lines[0]).toBe("timestamp_utc,block,event,tx_hash,address,amount_minor_units,amount_inr,explorer_tx_url,beneficiary_fingerprint,payout_ref_hash");
     expect(lines).toHaveLength(3);
     expect(lines[2]).toBe(
-      "2026-09-19T04:31:02.000Z,20,DonationReceived,0xbbb,0xdonor,250500000,250.5,https://amoy.polygonscan.com/tx/0xbbb",
+      "2026-09-19T04:31:02.000Z,20,DonationReceived,0xbbb,0xdonor,250500000,250.5,https://amoy.polygonscan.com/tx/0xbbb,,",
     );
     expect(lines[1].split(",")[5]).toBe("");
+  });
+
+  it("carries the beneficiary fingerprint and reference hash on payout rows only", () => {
+    const fp = `0x${"a1".repeat(32)}`;
+    const ref = `0x${"cd".repeat(32)}`;
+    const withPayout: DashboardData = {
+      ...data,
+      ledger: [...data.ledger, { id: "0xccc:0", type: "PayoutRecorded", milestoneIndex: 0, blockNumber: 30, timestamp: "2026-09-19T04:40:00.000Z", txHash: "0xccc", actor: "0xorg", amount: "60000000" }],
+      payouts: {
+        entries: [{ id: "0xccc:0", milestoneIndex: 0, amount: "60000000", identityHash: fp, payoutRef: ref, organizer: "0xorg", blockNumber: 30, timestamp: "2026-09-19T04:40:00.000Z", txHash: "0xccc" }],
+        totalMinorUnits: "60000000",
+        contract: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+      },
+    };
+    const lines = ledgerToCsv(withPayout).trim().split("\r\n");
+    expect(lines[3]).toBe(`2026-09-19T04:40:00.000Z,30,PayoutRecorded,0xccc,0xorg,60000000,60,https://amoy.polygonscan.com/tx/0xccc,${fp},${ref}`);
+    expect(lines[2].endsWith(",,")).toBe(true);
+    expect(ledgerToJson(withPayout).verifyYourself.payoutContractOnExplorer).toContain("0xa513");
   });
 
   it("quotes commas, quotes and newlines", () => {

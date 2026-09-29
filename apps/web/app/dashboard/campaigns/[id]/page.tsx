@@ -2,13 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionButton } from "@/components/ActionButton";
 import { MilestoneCard } from "@/components/MilestoneCard";
+import { PayoutForm } from "@/components/PayoutForm";
 import { PublishCampaignButton } from "@/components/PublishCampaignButton";
 import { CATEGORY_LABEL } from "@/lib/campaigns/ceilings";
 import { formatMinorUnits } from "@/lib/campaigns/money";
 import { requirePageUser } from "@/lib/campaigns/page-guard";
 import { getCampaign, ownerUserId } from "@/lib/campaigns/service";
+import { disbursementChain } from "@/lib/chain/disbursement";
 import { escrowChain } from "@/lib/chain/manager";
+import { beneficiaries } from "@/lib/db/schema";
+import { getDisbursement } from "@/lib/disbursement/service";
 import { viewsForCampaign } from "@/lib/escrow/service";
+import { vaultLedger } from "@/lib/indexer/queries";
+import { asc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +37,23 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const chain = escrowChain();
   const views = live ? await viewsForCampaign(db, chain, id) : [];
   const showViews = live && views.length > 0 && unregistered.length === 0;
+  const payoutsOn = disbursementChain().configured();
+  const payable = db
+    .select()
+    .from(beneficiaries)
+    .where(eq(beneficiaries.campaignId, id))
+    .orderBy(asc(beneficiaries.createdAt))
+    .all()
+    .filter((b) => b.chainStatus === "CONFIRMED")
+    .map((b) => ({ id: b.id, identityHash: b.identityHash, payoutMethod: b.payoutMethod }));
+  // What the manager released per milestone, as the indexer saw it; only a suggestion for the amount field.
+  const releasedAmounts = new Map(
+    live && campaign.vaultContractAddress
+      ? vaultLedger(db, campaign.vaultContractAddress)
+          .filter((e) => e.type === "MilestoneReleased" && e.milestoneIndex !== null)
+          .map((e) => [e.milestoneIndex as number, e.amount])
+      : [],
+  );
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
@@ -102,7 +125,21 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         {showViews ? (
           <ol className="mt-3 space-y-3">
             {views.map((v) => (
-              <MilestoneCard key={v.id} view={v} mode="release" />
+              <MilestoneCard
+                key={v.id}
+                view={v}
+                mode="release"
+                releasedSlot={
+                  payoutsOn ? (
+                    <PayoutForm
+                      milestoneId={v.id}
+                      beneficiaries={payable}
+                      existing={getDisbursement(db, v.id)}
+                      suggestedMinorUnits={releasedAmounts.get(v.index) ?? null}
+                    />
+                  ) : null
+                }
+              />
             ))}
           </ol>
         ) : null}

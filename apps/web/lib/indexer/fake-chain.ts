@@ -71,6 +71,20 @@ export function attested(vault: string, blockNumber: number, index = 0, attestor
   };
 }
 
+export const DISBURSEMENT = "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853";
+
+export function payout(vault: string, blockNumber: number, amount: string, milestoneIndex = 0, identityHash = `0x${"a1".repeat(32)}`): RawEvent {
+  return {
+    name: "PayoutRecorded",
+    contract: DISBURSEMENT,
+    vault,
+    blockNumber,
+    txHash: `0xa${String(++counter).padStart(63, "0")}`,
+    logIndex: 0,
+    args: { vault, milestoneIndex: String(milestoneIndex), identityHash, amount, payoutRef: `0x${"cd".repeat(32)}`, organizer: ORGANIZER },
+  };
+}
+
 /**
  * An in-memory chain for tests. `maxRange` makes reads refuse wide ranges like a real public
  * RPC; `failFromBlock` makes reads reaching that block fail until cleared.
@@ -82,6 +96,8 @@ export class FakeChain implements ChainReader {
   failFromBlock: number | null = null;
   headFails = false;
   balances = new Map<string, { tracked: bigint; token: bigint }>();
+  /** `Disbursement.disbursedTotal` per vault; unset vaults read 0. */
+  paidOut = new Map<string, bigint>();
   calls: Array<{ kind: string; from: number; to: number }> = [];
 
   async headBlock() {
@@ -110,6 +126,14 @@ export class FakeChain implements ChainReader {
 
   async registryEvents(from: number, to: number) {
     return this.read("registry", from, to, (e) => e.name === "BeneficiaryRegistered");
+  }
+
+  async disbursementEvents(from: number, to: number) {
+    return this.read("disbursement", from, to, (e) => e.name === "PayoutRecorded");
+  }
+
+  async disbursedTotalAt(vault: string) {
+    return this.paidOut.get(vault) ?? 0n;
   }
 
   async blockTimestamps(blocks: number[]) {

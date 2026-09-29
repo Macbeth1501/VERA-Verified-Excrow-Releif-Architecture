@@ -1,4 +1,4 @@
-/** Events from the CampaignFactory, the vaults, the MilestoneManager and the BeneficiaryRegistry. */
+/** Events from the CampaignFactory, the vaults, the MilestoneManager, the BeneficiaryRegistry and Disbursement. */
 export type EventName =
   | "CampaignCreated"
   | "DonationReceived"
@@ -7,7 +7,8 @@ export type EventName =
   | "MilestoneVerified"
   | "CouncilApproved"
   | "MilestoneReleased"
-  | "BeneficiaryRegistered";
+  | "BeneficiaryRegistered"
+  | "PayoutRecorded";
 
 /** A decoded on-chain event, as read from a contract. Amounts are decimal strings. */
 export interface RawEvent {
@@ -41,6 +42,13 @@ export interface ChainReader {
    * range. Optional: a reader without it indexes no beneficiary events.
    */
   registryEvents?(fromBlock: number, toBlock: number): Promise<RawEvent[]>;
+  /**
+   * PayoutRecorded events from the Disbursement contract (each names its vault), inclusive block range.
+   * Optional: a reader without it indexes no payouts.
+   */
+  disbursementEvents?(fromBlock: number, toBlock: number): Promise<RawEvent[]>;
+  /** `Disbursement.disbursedTotal(vault)` at a given block: what the contract says was paid out. */
+  disbursedTotalAt?(vault: string, block: number): Promise<bigint>;
   /** ISO timestamps for the given block numbers. */
   blockTimestamps(blocks: number[]): Promise<Map<number, string>>;
   /** The vault's internally tracked balance and its actual token balance at a given block. */
@@ -53,6 +61,8 @@ export interface IndexerConfig {
   managerStartBlock?: number;
   /** First block to read for the BeneficiaryRegistry; beneficiary events are skipped when unset. */
   registryStartBlock?: number;
+  /** First block to read for the Disbursement contract; payouts are skipped when unset. */
+  disbursementStartBlock?: number;
   confirmations: number;
   maxRange: number;
 }

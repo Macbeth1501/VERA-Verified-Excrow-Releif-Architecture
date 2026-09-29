@@ -21,6 +21,11 @@ const beneficiaryRegistered = parseAbiItem(
   "event BeneficiaryRegistered(address indexed vault, bytes32 indexed identityHash, bytes32 photoHash, uint256 index)",
 );
 
+const payoutRecorded = parseAbiItem(
+  "event PayoutRecorded(address indexed vault, uint256 indexed milestoneIndex, bytes32 indexed identityHash, uint256 amount, bytes32 payoutRef, address organizer)",
+);
+const disbursementAbi = parseAbi(["function disbursedTotal(address vault) view returns (uint256)"]);
+
 /** Timestamp lookups are fetched a few at a time so a busy range does not flood a public RPC. */
 const TIMESTAMP_BATCH = 5;
 
@@ -28,7 +33,12 @@ const TIMESTAMP_BATCH = 5;
  * The real chain reader for the indexer: public events from the CampaignFactory and its vaults,
  * read directly over RPC with the same ordered fallback list as everything else (SPDD 7.3).
  */
-export function createChainReader(factoryAddress: string, managerAddress?: string, registryAddress?: string): ChainReader {
+export function createChainReader(
+  factoryAddress: string,
+  managerAddress?: string,
+  registryAddress?: string,
+  disbursementAddress?: string,
+): ChainReader {
   const env = getEnv();
   const client = createPublicClient({
     chain: polygonAmoy,
@@ -131,6 +141,43 @@ export function createChainReader(factoryAddress: string, managerAddress?: strin
           index: String(log.args.index),
         },
       }));
+    },
+
+    async disbursementEvents(fromBlock, toBlock) {
+      if (!disbursementAddress) return [];
+      const logs = await client.getLogs({
+        address: disbursementAddress as `0x${string}`,
+        event: payoutRecorded,
+        fromBlock: BigInt(fromBlock),
+        toBlock: BigInt(toBlock),
+      });
+      return logs.map<RawEvent>((log) => ({
+        name: "PayoutRecorded",
+        contract: log.address,
+        vault: log.args.vault ?? "",
+        blockNumber: Number(log.blockNumber),
+        txHash: log.transactionHash,
+        logIndex: log.logIndex,
+        args: {
+          vault: log.args.vault ?? "",
+          milestoneIndex: String(log.args.milestoneIndex),
+          identityHash: log.args.identityHash ?? "",
+          amount: String(log.args.amount),
+          payoutRef: log.args.payoutRef ?? "",
+          organizer: log.args.organizer ?? "",
+        },
+      }));
+    },
+
+    async disbursedTotalAt(vault, block) {
+      if (!disbursementAddress) return 0n;
+      return client.readContract({
+        address: disbursementAddress as `0x${string}`,
+        abi: disbursementAbi,
+        functionName: "disbursedTotal",
+        args: [vault as `0x${string}`],
+        blockNumber: BigInt(block),
+      });
     },
 
     async blockTimestamps(blocks) {

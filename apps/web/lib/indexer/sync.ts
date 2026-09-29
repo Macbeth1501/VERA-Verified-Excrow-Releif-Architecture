@@ -94,6 +94,14 @@ export async function syncOnce(db: Db, reader: ChainReader, config: IndexerConfi
     );
   }
 
+  if (config.disbursementStartBlock !== undefined && reader.disbursementEvents) {
+    const disbursementEvents = reader.disbursementEvents.bind(reader);
+    newEvents += await syncStream(
+      db, reader, "disbursement", config.disbursementStartBlock - 1, safeBlock, config.maxRange,
+      (from, to) => disbursementEvents(from, to), errors,
+    );
+  }
+
   for (const { vault, createdAtBlock } of knownVaults(db)) {
     newEvents += await syncStream(
       db, reader, `vault:${vault}`, createdAtBlock - 1, safeBlock, config.maxRange,

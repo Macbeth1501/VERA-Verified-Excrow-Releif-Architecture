@@ -166,10 +166,10 @@ export async function disburseMilestone(
     if (!state.released) return fail(409, "MILESTONE_NOT_RELEASED", "This milestone has not been released yet, so there is nothing to pay out.");
     const amount = BigInt(input.amountMinorUnits);
     if (amount > BigInt(state.payableRemaining)) {
-      return fail(409, "EXCEEDS_RELEASED", `The payout is more than this campaign has released and not yet paid out (${formatMinorUnits(state.payableRemaining)} mINR).`);
+      return fail(409, "EXCEEDS_RELEASED", `The payout is more than this campaign has released and not yet paid out (${formatMinorUnits(state.payableRemaining)}).`);
     }
     if (amount > BigInt(state.organizerBalance)) {
-      return fail(409, "INSUFFICIENT_FUNDS", `The organizer's wallet holds ${formatMinorUnits(state.organizerBalance)} mINR, less than this payout.`);
+      return fail(409, "INSUFFICIENT_FUNDS", `The organizer's wallet holds ${formatMinorUnits(state.organizerBalance)}, less than this payout.`);
     }
 
     const request = { beneficiaryId: beneficiary.id, identityHash: beneficiary.identityHash, amountMinorUnits: input.amountMinorUnits };
@@ -220,4 +220,10 @@ export async function disburseMilestone(
   } finally {
     if (rowId) settle(rowId, { lockedUntil: 0 });
   }
+}
+
+/** A milestone's recorded payout, for its organizer's page; null when none was requested. */
+export function getDisbursement(db: Db, milestoneId: string): DisbursementView | null {
+  const row = db.select().from(disbursements).where(eq(disbursements.milestoneId, milestoneId)).get();
+  return row ? viewOf(row) : null;
 }

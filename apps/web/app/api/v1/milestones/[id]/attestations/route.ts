@@ -23,7 +23,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!parsed.success) return apiError(400, "VALIDATION_FAILED", "Please attach your evidence.", parsed.error.flatten().fieldErrors);
 
   const { id } = await params;
-  const result = await submitAttestation(getDb(), escrowChain(), auth.user, id, parsed.data.proofHash);
+  const evidence =
+    parsed.data.evidenceData && parsed.data.evidenceMimeType
+      ? { data: parsed.data.evidenceData, mimeType: parsed.data.evidenceMimeType, name: parsed.data.evidenceName ?? "evidence" }
+      : undefined;
+  const result = await submitAttestation(getDb(), escrowChain(), auth.user, id, parsed.data.proofHash, evidence);
   if (!result.ok) return escrowError(result);
   const { state } = result.milestone;
   return Response.json({

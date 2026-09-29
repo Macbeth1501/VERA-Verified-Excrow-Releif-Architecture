@@ -38,7 +38,7 @@ function FreshnessBanner({ data, refreshFailed }: { data: DashboardData; refresh
 }
 
 function ReconciliationBadge({ data }: { data: DashboardData }) {
-  const { status, checkedAtBlock } = data.reconciliation;
+  const { status, checkedAtBlock, payouts } = data.reconciliation;
   const styles = {
     match: "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
     mismatch: "border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200",
@@ -47,7 +47,10 @@ function ReconciliationBadge({ data }: { data: DashboardData }) {
   }[status];
   const message = {
     match: `Verified against the blockchain. The total shown here matches what the escrow account holds, to the last unit, at block ${checkedAtBlock?.toLocaleString("en-US")}.`,
-    mismatch: "Warning: the total shown here does NOT match what the escrow account holds on the blockchain. Do not rely on these figures.",
+    mismatch:
+      payouts === "mismatch"
+        ? "Warning: the payouts shown here do NOT match the payout contract on the blockchain, or exceed what was released. Do not rely on these figures."
+        : "Warning: the total shown here does NOT match what the escrow account holds on the blockchain. Do not rely on these figures.",
     unavailable: "We could not compare these figures with the blockchain right now. You can check them yourself below.",
     not_checked: "These figures have not been compared with the blockchain. You can check them yourself below.",
   }[status];
@@ -55,6 +58,11 @@ function ReconciliationBadge({ data }: { data: DashboardData }) {
   return (
     <div className={`rounded-lg border p-4 ${styles}`} data-testid="reconciliation" data-status={status}>
       <p className="font-medium">{message}</p>
+      {status === "match" && payouts === "match" ? (
+        <p className="mt-1 text-sm" data-testid="payouts-reconciled">
+          Payouts to beneficiaries also match the payout contract&apos;s own total, and never exceed what was released.
+        </p>
+      ) : null}
       <p className="mt-3 text-sm">
         Escrow account:{" "}
         <a className="break-all font-mono underline" href={explorerAddressUrl(data.vault)} target="_blank" rel="noreferrer">
@@ -101,18 +109,93 @@ function useLiveData(initial: DashboardData) {
 }
 
 /**
+ * Every payout to a beneficiary (FR-ESC-02), each a public line item on the Disbursement contract.
+ * The beneficiary shows only as their registry fingerprint and the transfer only as the hash of its
+ * reference, as they are on-chain: nobody can read a name or an account number from them.
+ */
+function Payouts({ data }: { data: DashboardData }) {
+  const { entries, contract } = data.payouts;
+  if (!contract && entries.length === 0) return null;
+  const milestone = (index: number) => data.milestones.find((m) => m.sequenceOrder === index);
+  return (
+    <section aria-labelledby="payouts-heading" className="mt-10" data-testid="payouts">
+      <h2 id="payouts-heading" className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        Payouts to beneficiaries
+      </h2>
+      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        After a milestone is released, the organizer records who it paid. The payout contract refuses a payout for an
+        unreleased milestone, an unregistered beneficiary, a milestone already paid, or more than was released.
+        {contract ? (
+          <>
+            {" "}
+            <a className="underline" href={explorerAddressUrl(contract)} target="_blank" rel="noreferrer">
+              Check the payout contract
+            </a>
+            .
+          </>
+        ) : null}
+      </p>
+      {entries.length === 0 ? (
+        <p className="mt-4 text-zinc-600 dark:text-zinc-400">No payouts recorded yet.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">Payouts to beneficiaries, newest first</caption>
+            <thead className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
+              <tr>
+                <th scope="col" className="py-2 pr-4 font-medium">When</th>
+                <th scope="col" className="py-2 pr-4 font-medium">Milestone</th>
+                <th scope="col" className="py-2 pr-4 font-medium">Beneficiary</th>
+                <th scope="col" className="py-2 pr-4 text-right font-medium">Amount</th>
+                <th scope="col" className="py-2 pr-4 font-medium">Reference</th>
+                <th scope="col" className="py-2 font-medium">Proof</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...entries].reverse().map((p) => (
+                <tr key={p.id} className="border-b border-zinc-100 dark:border-zinc-900" data-testid="payout-row">
+                  <td className="py-2 pr-4 text-zinc-700 dark:text-zinc-300">{formatUtc(p.timestamp)}</td>
+                  <td className="py-2 pr-4 text-zinc-700 dark:text-zinc-300">
+                    {p.milestoneIndex + 1}. {milestone(p.milestoneIndex)?.description ?? ""}
+                  </td>
+                  <td className="py-2 pr-4 font-mono text-xs text-zinc-600 dark:text-zinc-400" title={p.identityHash}>
+                    {shortAddress(p.identityHash)}
+                  </td>
+                  <td className="py-2 pr-4 text-right font-medium text-zinc-900 dark:text-zinc-50">{formatMinorUnits(p.amount)}</td>
+                  <td className="py-2 pr-4 font-mono text-xs text-zinc-600 dark:text-zinc-400" title={p.payoutRef}>
+                    {shortAddress(p.payoutRef)}
+                  </td>
+                  <td className="py-2">
+                    <a className="underline" href={explorerTxUrl(p.txHash)} target="_blank" rel="noreferrer">
+                      View on explorer
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
  * A milestone's progress as the public ledger shows it, counted from indexed on-chain events only
  * (the database keeps no attestation counts), so it can never claim more than the chain does.
  */
 export function milestoneProgress(ledger: DashboardData["ledger"], index: number) {
   const mine = ledger.filter((e) => e.milestoneIndex === index);
   const release = mine.find((e) => e.type === "MilestoneReleased");
+  const payout = mine.find((e) => e.type === "PayoutRecorded");
   return {
     attestations: mine.filter((e) => e.type === "MilestoneAttested").length,
     council: mine.filter((e) => e.type === "CouncilApproved").length,
     verified: mine.some((e) => e.type === "MilestoneVerified"),
     released: Boolean(release),
     releasedAmount: release?.amount ?? null,
+    /** Paid on to a registered beneficiary through the Disbursement contract. */
+    paidToBeneficiary: payout?.amount ?? null,
   };
 }
 
@@ -170,6 +253,11 @@ export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardDat
             {formatMinorUnits(escrow.totalReleasedMinorUnits)} already paid out through verified milestones
           </p>
         ) : null}
+        {BigInt(data.payouts.totalMinorUnits) > 0n ? (
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400" data-testid="paid-to-beneficiaries">
+            {formatMinorUnits(data.payouts.totalMinorUnits)} of that passed on to registered beneficiaries
+          </p>
+        ) : null}
         {data.beneficiaries.registry ? (
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400" data-testid="beneficiaries">
             {data.beneficiaries.uniqueCount} verified unique {data.beneficiaries.uniqueCount === 1 ? "beneficiary" : "beneficiaries"} ·{" "}
@@ -211,12 +299,15 @@ export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardDat
                   {m.requiredAttestations} independent confirmations · <span data-testid="milestone-state">{state}</span>
                   {progress.council > 0 ? ` · ${progress.council} council approvals` : ""}
                   {progress.releasedAmount ? ` · paid out ${formatMinorUnits(progress.releasedAmount)}` : ""}
+                  {progress.paidToBeneficiary ? ` · ${formatMinorUnits(progress.paidToBeneficiary)} paid to a beneficiary` : ""}
                 </p>
               </li>
             );
           })}
         </ol>
       </section>
+
+      <Payouts data={data} />
 
       <section aria-labelledby="ledger-heading" className="mt-10">
         <div className="flex flex-wrap items-center justify-between gap-3">

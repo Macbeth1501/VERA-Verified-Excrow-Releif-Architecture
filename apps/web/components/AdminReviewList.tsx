@@ -11,6 +11,7 @@ export interface ReviewItem {
   jurisdiction: string;
   documentName: string;
   documentHash: string;
+  documentId: string | null;
   kybStatus: "pending" | "verified" | "rejected";
   rejectionReason: string | null;
   chainSync: "none" | "not_configured" | "synced" | "failed";
@@ -72,6 +73,21 @@ export function AdminReviewList({ items }: { items: ReviewItem[] }) {
               <p className="text-sm text-zinc-600 dark:text-zinc-400">Applicant: {o.email}</p>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 Document: {o.documentName} <span className="font-mono text-xs">({o.documentHash.slice(0, 12)}...)</span>
+                {o.documentId ? (
+                  <>
+                    {" "}
+                    <a
+                      href={`/api/v1/documents/${o.documentId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-zinc-900 underline dark:text-zinc-50"
+                    >
+                      View document
+                    </a>
+                  </>
+                ) : (
+                  <span className="italic text-zinc-500"> (no file uploaded, hash only)</span>
+                )}
               </p>
             </div>
             <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium capitalize dark:bg-zinc-800">

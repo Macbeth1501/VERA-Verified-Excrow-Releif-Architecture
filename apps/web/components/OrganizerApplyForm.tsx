@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { sha256HexOfFile } from "@/lib/hash";
+import { fileToBase64, sha256HexOfFile } from "@/lib/hash";
 
 type FieldErrors = Record<string, string[] | undefined>;
 
@@ -11,7 +11,7 @@ export function OrganizerApplyForm() {
   const [legalName, setLegalName] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [jurisdiction, setJurisdiction] = useState("");
-  const [document, setDocument] = useState<{ name: string; hash: string } | null>(null);
+  const [document, setDocument] = useState<{ name: string; hash: string; mimeType: string; data: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -19,8 +19,9 @@ export function OrganizerApplyForm() {
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return setDocument(null);
-    // The file never leaves the browser: only its fingerprint is sent.
-    setDocument({ name: file.name, hash: await sha256HexOfFile(file) });
+    // The hash is what actually proves what was reviewed; the file is also uploaded so an admin can open it.
+    const [hash, data] = await Promise.all([sha256HexOfFile(file), fileToBase64(file)]);
+    setDocument({ name: file.name, hash, mimeType: file.type, data });
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -38,6 +39,8 @@ export function OrganizerApplyForm() {
           jurisdiction,
           documentHash: document?.hash ?? "",
           documentName: document?.name ?? "",
+          documentMimeType: document?.mimeType || undefined,
+          documentData: document?.data,
         }),
       });
       if (res.ok) return router.refresh();
@@ -93,13 +96,15 @@ export function OrganizerApplyForm() {
         <label htmlFor="document" className={label}>
           Supporting document (registration certificate)
         </label>
-        <input id="document" type="file" onChange={onFile} className={input} />
+        <input id="document" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" onChange={onFile} className={input} />
         <p className="mt-1 text-sm text-zinc-500">
           {document
-            ? `Selected: ${document.name}. Only a fingerprint of this file is sent; the file itself stays on your device.`
-            : "Choose a file. Only its fingerprint is sent, never the file itself."}
+            ? `Selected: ${document.name}. It will be uploaded (JPEG, PNG, WEBP, GIF or PDF, up to 8 MB) so an admin can review it, along with its fingerprint.`
+            : "Choose a JPEG, PNG, WEBP, GIF or PDF file, up to 8 MB. An admin will review it before approving your application."}
         </p>
         {errors("documentHash")}
+        {errors("documentMimeType")}
+        {errors("documentData")}
       </div>
 
       {formError ? (

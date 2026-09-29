@@ -62,7 +62,10 @@ export default async function AccountPage() {
             {myDonations.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
                 <span className="text-zinc-800 dark:text-zinc-200">
-                  {formatMinorUnits(d.amountMinorUnits)} to {getCampaign(db, d.campaignId)?.title ?? "a campaign"}
+                  {formatMinorUnits(d.amountMinorUnits)} to{" "}
+                  <Link href={`/campaigns/${d.campaignId}`} className="underline">
+                    {getCampaign(db, d.campaignId)?.title ?? "a campaign"}
+                  </Link>
                 </span>
                 <Link href={`/donations/${d.id}`} className="shrink-0 font-medium underline">
                   {d.status === "CONFIRMED" ? "Confirmed" : d.status === "FAILED" ? "Failed, retry" : "Pending, view"}

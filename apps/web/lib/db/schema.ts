@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { blob, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /**
  * USERS table (SPDD §11.2). Column names are snake_case per SPDD §14.
@@ -28,9 +28,36 @@ export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
 
 /**
+ * DOCUMENTS table: the actual bytes of an uploaded supporting file (KYB document or milestone
+ * evidence), stored alongside the client-computed hash that is what actually goes on-chain / is
+ * used for integrity. The server independently re-hashes the uploaded bytes and refuses a
+ * mismatch, so the hash still proves what was reviewed even though the file is now also kept for
+ * an admin/attestor/council viewer to open. Access is gated per `purpose` in the download route,
+ * never by a bare id, since these can hold sensitive KYB material.
+ */
+export const documents = sqliteTable("documents", {
+  id: text("id").primaryKey(),
+  purpose: text("purpose", { enum: ["kyb", "milestone_evidence"] }).notNull(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256Hash: text("sha256_hash").notNull(),
+  data: blob("data", { mode: "buffer" }).notNull(),
+  uploadedByUserId: text("uploaded_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+});
+
+export type DocumentRow = typeof documents.$inferSelect;
+
+/**
  * ORGANIZER_PROFILES table (SPDD §11.2), the mock-KYB record behind FR-IDN-02.
- * `kybStatus` is the authority for "may this user create campaigns". The supporting document is
- * hashed in the browser; only the hash and file name are stored, never the file itself.
+ * `kybStatus` is the authority for "may this user create campaigns". The supporting document's
+ * hash and file name are always stored; `documentId` additionally links to the uploaded bytes in
+ * `documents` when the applicant's browser sent them (optional, for backward compatibility).
  */
 export const organizerProfiles = sqliteTable("organizer_profiles", {
   id: text("id").primaryKey(),
@@ -43,6 +70,7 @@ export const organizerProfiles = sqliteTable("organizer_profiles", {
   jurisdiction: text("jurisdiction").notNull(),
   documentHash: text("document_hash").notNull(),
   documentName: text("document_name").notNull(),
+  documentId: text("document_id").references(() => documents.id),
   kybStatus: text("kyb_status", { enum: ["pending", "verified", "rejected"] })
     .notNull()
     .default("pending"),
@@ -144,6 +172,7 @@ export const chainEvents = sqliteTable("chain_events", {
       "CouncilApproved",
       "MilestoneReleased",
       "BeneficiaryRegistered",
+      "PayoutRecorded",
     ],
   }).notNull(),
   /** Contract that emitted the event. */
@@ -256,8 +285,10 @@ export const milestoneActions = sqliteTable(
       .notNull()
       .references(() => users.id),
     actorAddress: text("actor_address").notNull(),
-    /** Attestations only: hash of the evidence the attestor reviewed (the file stays in the browser). */
+    /** Attestations only: hash of the evidence the attestor reviewed. */
     proofHash: text("proof_hash"),
+    /** Attestations only: the uploaded evidence file itself, when the attestor's browser sent it. */
+    evidenceDocumentId: text("evidence_document_id").references(() => documents.id),
     status: text("status", { enum: ["PENDING", "CONFIRMED", "FAILED"] })
       .notNull()
       .default("PENDING"),

@@ -12,10 +12,18 @@ export function csvField(value: string): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-const HEADER = ["timestamp_utc", "block", "event", "tx_hash", "address", "amount_minor_units", "amount_inr", "explorer_tx_url"];
+const HEADER = [
+  "timestamp_utc", "block", "event", "tx_hash", "address", "amount_minor_units", "amount_inr", "explorer_tx_url",
+  "beneficiary_fingerprint", "payout_ref_hash",
+];
 
-/** The full audit trail as CSV: one row per on-chain event, oldest first, with explorer links. */
+/**
+ * The full audit trail as CSV: one row per on-chain event, oldest first, with explorer links. A payout
+ * row also carries the beneficiary's registry fingerprint and the hash of the off-ramp reference,
+ * exactly as the PayoutRecorded event made them public; every other row leaves those two blank.
+ */
 export function ledgerToCsv(data: DashboardData): string {
+  const payouts = new Map(data.payouts.entries.map((p) => [p.id, p]));
   const rows = data.ledger.map((e) => [
     e.timestamp,
     String(e.blockNumber),
@@ -25,6 +33,8 @@ export function ledgerToCsv(data: DashboardData): string {
     e.amount ?? "",
     e.amount === null ? "" : formatUnits(BigInt(e.amount), MINR_DECIMALS),
     explorerTxUrl(e.txHash),
+    payouts.get(e.id)?.identityHash ?? "",
+    payouts.get(e.id)?.payoutRef ?? "",
   ]);
   return [HEADER, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n") + "\r\n";
 }
@@ -37,7 +47,8 @@ export function ledgerToJson(data: DashboardData) {
       vaultAddress: data.vault,
       vaultOnExplorer: explorerAddressUrl(data.vault),
       howTo:
-        "Open vaultOnExplorer, check the mINR token balance held by the vault, and compare it with escrow.heldMinorUnits (6 decimals). Each ledger entry links to its transaction.",
+        "Open vaultOnExplorer, check the mINR token balance held by the vault, and compare it with escrow.heldMinorUnits (6 decimals). Each ledger entry links to its transaction. Payouts can be checked against payoutContractOnExplorer: its disbursedTotal(vault) equals payouts.totalMinorUnits.",
+      payoutContractOnExplorer: data.payouts.contract ? explorerAddressUrl(data.payouts.contract) : null,
     },
   };
 }

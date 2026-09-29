@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import type { Db } from "../db";
 import { organizerProfiles, users, type OrganizerProfileRow } from "../db/schema";
 import type { ChainSyncResult } from "../chain/factory";
+import { saveDocument } from "../files/service";
 import type { ApplicationInput } from "./validation";
 
 export type KybStatus = OrganizerProfileRow["kybStatus"];
@@ -16,6 +17,7 @@ export interface OrganizerProfile {
   jurisdiction: string;
   documentName: string;
   documentHash: string;
+  documentId: string | null;
   kybStatus: KybStatus;
   rejectionReason: string | null;
   reviewedAt: string | null;
@@ -64,6 +66,7 @@ function toProfile(row: OrganizerProfileRow): OrganizerProfile {
     jurisdiction: row.jurisdiction,
     documentName: row.documentName,
     documentHash: row.documentHash,
+    documentId: row.documentId,
     kybStatus: row.kybStatus,
     rejectionReason: row.rejectionReason,
     reviewedAt: row.reviewedAt,
@@ -87,12 +90,25 @@ export function submitApplication(db: Db, userId: string, input: ApplicationInpu
   const existing = db.select().from(organizerProfiles).where(eq(organizerProfiles.userId, userId)).get();
   if (existing && existing.kybStatus !== "rejected") throw new AlreadyAppliedError(existing.kybStatus);
 
+  const documentId =
+    input.documentData && input.documentMimeType
+      ? saveDocument(db, {
+          purpose: "kyb",
+          filename: input.documentName,
+          mimeType: input.documentMimeType,
+          base64Data: input.documentData,
+          expectedHash: input.documentHash,
+          uploadedByUserId: userId,
+        })
+      : null;
+
   const fields = {
     legalName: input.legalName,
     registrationNumber: input.registrationNumber,
     jurisdiction: input.jurisdiction,
     documentHash: input.documentHash.toLowerCase(),
     documentName: input.documentName,
+    documentId,
     kybStatus: "pending" as const,
     rejectionReason: null,
     reviewedBy: null,

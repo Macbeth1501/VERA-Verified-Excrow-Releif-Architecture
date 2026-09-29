@@ -1,9 +1,11 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, type Db } from "../db";
-import { indexerStatus, reconcileVault, vaultLedger, vaultTotals } from "./queries";
+import { indexerCursors } from "../db/schema";
+import { indexerStatus, reconcileVault, vaultLedger, vaultPayouts, vaultTotals } from "./queries";
 import { allCursors } from "./store";
 import { syncOnce } from "./sync";
-import { FakeChain, VAULT_A, VAULT_B, attested, beneficiary, created, donation, released } from "./fake-chain";
+import { FakeChain, VAULT_A, VAULT_B, attested, beneficiary, created, donation, payout, released } from "./fake-chain";
 
 const config = { startBlock: 100, confirmations: 2, maxRange: 2000 };
 let db: Db;
@@ -293,5 +295,91 @@ describe("beneficiary events (Step 13 registry)", () => {
     expect(totals.totalReleased).toBe("150000000");
     expect(totals.beneficiaryCount).toBe(1);
     expect(vaultLedger(db, VAULT_A).filter((e) => e.type === "MilestoneAttested")).toHaveLength(1);
+  });
+});
+
+describe("payout events (Step 14 Disbursement)", () => {
+  const withAll = { ...config, managerStartBlock: 100, disbursementStartBlock: 100 };
+  const H2 = `0x${"b2".repeat(32)}`;
+  /** Donated 100, released 60 of it to the organizer; the vault holds 40. */
+  const base = () => [created(VAULT_A, 150), donation(VAULT_A, 200, "100000000"), released(VAULT_A, 300, "60000000")];
+  beforeEach(() => chain.balances.set(VAULT_A, { tracked: 40000000n, token: 40000000n }));
+
+  it("lists each payout with its milestone, amount, fingerprint and reference hash, per campaign", async () => {
+    chain.events = [...base(), created(VAULT_B, 160), payout(VAULT_A, 400, "60000000", 0, H2), payout(VAULT_B, 410, "5", 0)];
+    await syncOnce(db, chain, withAll);
+    const payouts = vaultPayouts(db, VAULT_A);
+    expect(payouts).toHaveLength(1);
+    expect(payouts[0]).toMatchObject({ milestoneIndex: 0, amount: "60000000", identityHash: H2, payoutRef: `0x${"cd".repeat(32)}` });
+    expect(vaultTotals(db, VAULT_A)).toMatchObject({ totalPaidOut: "60000000", payoutCount: 1 });
+  });
+
+  it("puts payouts in the ledger under their milestone, with the organizer as the actor", async () => {
+    chain.events = [...base(), payout(VAULT_A, 400, "60000000", 1)];
+    await syncOnce(db, chain, withAll);
+    const entry = vaultLedger(db, VAULT_A).find((e) => e.type === "PayoutRecorded");
+    expect(entry).toMatchObject({ milestoneIndex: 1, amount: "60000000", actor: expect.stringMatching(/^0x2222/) });
+  });
+
+  it("leaves the vault balance alone: payouts leave the organizer's wallet, not the escrow", async () => {
+    chain.events = [...base(), payout(VAULT_A, 400, "60000000")];
+    chain.paidOut.set(VAULT_A, 60000000n);
+    await syncOnce(db, chain, withAll);
+    expect(vaultTotals(db, VAULT_A).balance).toBe("40000000");
+    const row = await reconcileVault(db, chain, VAULT_A, 100);
+    expect(row?.payouts).toMatchObject({ indexedPaidOut: "60000000", chainPaidOut: "60000000", withinReleases: true, match: true });
+    expect(row?.match).toBe(true);
+  });
+
+  it("flags payouts that differ from the contract's own total by even one unit", async () => {
+    chain.events = [...base(), payout(VAULT_A, 400, "60000000")];
+    chain.paidOut.set(VAULT_A, 60000001n);
+    await syncOnce(db, chain, withAll);
+    const row = await reconcileVault(db, chain, VAULT_A, 100);
+    expect(row?.payouts.match).toBe(false);
+    expect(row?.match).toBe(false);
+  });
+
+  it("flags payouts that exceed releases", async () => {
+    chain.events = [...base(), payout(VAULT_A, 400, "60000001")];
+    chain.paidOut.set(VAULT_A, 60000001n);
+    await syncOnce(db, chain, withAll);
+    const row = await reconcileVault(db, chain, VAULT_A, 100);
+    expect(row?.payouts.withinReleases).toBe(false);
+    expect(row?.match).toBe(false);
+  });
+
+  it("counts both sides only up to the block every stream has reached, so a lagging stream cannot fake a mismatch", async () => {
+    chain.events = [...base(), payout(VAULT_A, 400, "60000000")];
+    chain.paidOut.set(VAULT_A, 60000000n);
+    await syncOnce(db, chain, withAll);
+    // The disbursement stream falls behind the payout; the others are further ahead.
+    db.update(indexerCursors).set({ lastBlock: 350 }).where(eq(indexerCursors.stream, "disbursement")).run();
+    chain.paidOut.set(VAULT_A, 0n); // what the contract held at block 350
+    const row = await reconcileVault(db, chain, VAULT_A, 100);
+    expect(row?.payouts).toMatchObject({ checkedAtBlock: 350, indexedPaidOut: "0", match: true });
+  });
+
+  it("does not read the contract before it existed, and skips the comparison when it is not configured", async () => {
+    chain.events = base();
+    await syncOnce(db, chain, withAll);
+    chain.paidOut.set(VAULT_A, 999n); // would be a mismatch if it were read
+    expect((await reconcileVault(db, chain, VAULT_A, 5000))?.payouts).toMatchObject({ chainPaidOut: "0", match: true });
+    expect((await reconcileVault(db, chain, VAULT_A))?.payouts).toMatchObject({ chainPaidOut: null, match: null });
+  });
+
+  it("ignores the payout contract entirely when no start block is configured", async () => {
+    chain.events = [...base(), payout(VAULT_A, 400, "1")];
+    await syncOnce(db, chain, { ...config, managerStartBlock: 100 });
+    expect(chain.calls.some((c) => c.kind === "disbursement")).toBe(false);
+    expect(vaultPayouts(db, VAULT_A)).toEqual([]);
+  });
+
+  it("does not count a payout twice when read again", async () => {
+    chain.events = [...base(), payout(VAULT_A, 400, "60000000")];
+    await syncOnce(db, chain, withAll);
+    db.delete(indexerCursors).where(eq(indexerCursors.stream, "disbursement")).run();
+    await syncOnce(db, chain, withAll);
+    expect(vaultTotals(db, VAULT_A).totalPaidOut).toBe("60000000");
   });
 });
