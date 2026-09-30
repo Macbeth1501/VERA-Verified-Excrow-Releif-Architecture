@@ -9,6 +9,7 @@ export function LogoutButton() {
       type="button"
       onClick={async () => {
         await fetch("/api/v1/auth/logout", { method: "POST" });
+        window.dispatchEvent(new Event("vera:auth-changed"));
         router.push("/");
         router.refresh();
       }}

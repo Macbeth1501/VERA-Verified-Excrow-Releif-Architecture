@@ -17,7 +17,7 @@ All commands are **Git Bash** (Unix syntax) and use Foundry's `cast`, which is a
 | Currency | POL (used to pay gas) |
 | Private key | Stored in `contracts/.env` as `DEPLOYER_PRIVATE_KEY`. Never paste it into chat, docs or commits. |
 | Explorer page | https://amoy.polygonscan.com/address/0xb2Ab1471d98909237B3F3828E7422182584E11E3 |
-| Balance on 2026-09-29 | **11.825 POL** (was about 0.01 on 2026-09-19 after deploying MilestoneManager at a gas spike, 1.41 POL, and running live tests; topped up substantially since). Comfortable for a round of testing and the `Disbursement` deploy once gas is reasonable. |
+| Balance on 2026-09-30 | **11.226 POL** (was about 0.01 on 2026-09-19 after deploying MilestoneManager at a gas spike, 1.41 POL, and running live tests; topped up substantially since; 2026-09-30 spent 0.032 on the `Disbursement` deploy and 0.566 on two live escrow test runs). Comfortable for further testing. |
 
 Related deployed contracts (for reference):
 
@@ -27,7 +27,7 @@ Related deployed contracts (for reference):
 | MilestoneManager | `0xe6d7222dDe3eE4b9688269427631aDF49229e747` |
 | CampaignFactory | `0x6931E776da5db1D9e5890407FE268705D70740bD` |
 | BeneficiaryRegistry | `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D` |
-| Disbursement | not yet deployed |
+| Disbursement | `0x8305ECfbd9365efF27efD6f360C36589C006e5eA` (block 48925371) |
 
 Only the **address** is ever needed to receive tokens. You never need the main wallet's private key for this guide except when you later spend from it (deployments), and that already lives in `contracts/.env`.
 

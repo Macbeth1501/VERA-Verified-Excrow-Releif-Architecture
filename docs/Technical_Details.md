@@ -182,7 +182,7 @@ classDiagram
     *   The "program" is the campaign's own vault address, not a separate `programId`, so `register(vault, identityHash, photoHash)` reuses the same organizer check the manager uses.
     *   A repeat `identityHash` for the same vault reverts with `DuplicateBeneficiary(vault, hash)`. No owner, no admin function.
 
-#### 6. `Disbursement.sol` (Post-Release Payout Tracker) — written and tested, **not yet deployed**
+#### 6. `Disbursement.sol` (Post-Release Payout Tracker) — written, tested and **deployed on Amoy** (2026-09-30, `0x8305ECfbd9365efF27efD6f360C36589C006e5eA`)
 *   **Purpose**: Connects on-chain released funds with actual field payments. Built downstream of the already-deployed, immutable `MilestoneManager` (a divergence from the original design, where the vault would release directly into `Disbursement`): the manager still pays the organizer, and this contract caps what the organizer can then record as paid out.
 *   **Flow**: the organizer approves this contract for `amount` of mINR, then calls `disburse(vault, milestoneIndex, identityHash, amount, payoutRef)`. It refuses unless the milestone is Released on the real manager, the beneficiary is registered for that vault on the real registry, that milestone was not paid before, and the running total for the vault stays within `manager.releasedTotal(vault)`. Emits `PayoutRecorded(vault, milestoneIndex, identityHash, amount, payoutRef, organizer)` — the money itself comes to rest in the contract, since the actual bank/mobile-money transfer is simulated, not called.
 
@@ -417,7 +417,7 @@ pnpm dev
 | **CampaignFactory** | `0x6931E776da5db1D9e5890407FE268705D70740bD` | `47969967` |
 | **MilestoneManager** | `0xe6d7222dDe3eE4b9688269427631aDF49229e747` | `47997230` |
 | **BeneficiaryRegistry** | `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D` | `48161539` |
-| **Disbursement** | not yet deployed | — |
+| **Disbursement** | `0x8305ECfbd9365efF27efD6f360C36589C006e5eA` | `48925371` |
 
 ---
 

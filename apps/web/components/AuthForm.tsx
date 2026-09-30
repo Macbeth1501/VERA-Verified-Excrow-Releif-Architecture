@@ -66,7 +66,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        router.push("/account");
+        window.dispatchEvent(new Event("vera:auth-changed"));
+        router.push("/dashboard");
         router.refresh();
         return;
       }

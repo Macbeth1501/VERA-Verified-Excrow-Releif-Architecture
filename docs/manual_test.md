@@ -184,7 +184,7 @@ pnpm dev
 
 Wait for `Ready`, then open **http://localhost:3000** in your browser. The database file is created and migrated automatically on the first request.
 
-**Signing in as different people:** the site keeps you signed in with a cookie, so one browser window is one person. To test several roles, use separate browser profiles or incognito windows (for example one normal window for the admin and one incognito window for everyone else, signing out and in between people). Signing out is in the account page.
+**Signing in as different people:** the site keeps you signed in with a cookie shared by every window of the same browser profile, so one browser profile is one person (if you sign in as someone else in a second window, the first window now shows an amber "Another window signed in as ..." warning with a Refresh button). After signing in you land on your role's own workspace (`/dashboard` redirects donor, organizer, attestor, council and admin to their pages), and the top bar shows who you are and the links for your role. To test several roles, use separate browser profiles or incognito windows (for example one normal window for the admin and one incognito window for everyone else, signing out and in between people). Signing out is in the account page.
 
 ---
 
@@ -301,7 +301,7 @@ INDEXER_START_BLOCK=0 MANAGER_START_BLOCK=0 \
 npx vitest run lib/escrow/live-amoy.test.ts
 ```
 
-Expected: `1 passed`. **Never run this with your Amoy settings**: against Amoy it costs about 0.5 POL a run. The project rule is to spend POL only when strictly necessary.
+Expected: `1 passed`. **Never run this with your Amoy settings**: against Amoy it costs about 0.3-0.5 POL a run and takes 10-15 minutes (if it is ever run on Amoy, do it in the background with output redirected to a file, not with a shell timeout or a pipe; it was run that way successfully on 2026-09-30). The project rule is to spend POL only when strictly necessary.
 
 There is a second one, `lib/disbursement/live-local.test.ts`, covering beneficiary registration and a payout end to end (needs all five contracts from section 4, including Disbursement):
 
@@ -325,7 +325,7 @@ From the repository root:
 
 ```bash
 pnpm test                      # contract tests: 73 passing (fuzz at 10,000 runs)
-pnpm test:web                  # web tests against simulated chains: about 329 passing, 2 skipped
+pnpm test:web                  # web tests against simulated chains: about 341 passing, 2 skipped
 cd apps/web && npx tsc --noEmit && npx eslint . && cd ../..    # should print nothing
 pnpm build                     # production build; stop pnpm dev first
 ```
@@ -348,7 +348,7 @@ If you skip step 2 after restarting anvil, the website will show data from a cha
 2. **Delete or rename `apps/web/.env.development.local`** (e.g. `mv apps/web/.env.development.local apps/web/.env.development.local.bak` if you want to keep it for next time). Do this as soon as you're done with a local-chain session, not "eventually" — it is easy to forget it exists, and it silently overrides `.env.local` with no warning on screen. This exact thing happened once: a campaign and a donation were made believing they were on real Amoy, while `pnpm dev` was actually still pointed at a long-gone local anvil chain.
 3. Start `pnpm dev` again. It now reads `apps/web/.env.local` (Amoy). If you're not sure which one it's using, check the admin console or a fresh publish/donation against `cast balance`/`amoy.polygonscan.com` — Amoy activity should show up there within seconds.
 
-Remember: on Amoy, anything that sends a transaction needs POL in the sponsor wallet and `FACTORY_OWNER_KEY` in `.env.local`. See `docs/mining_instructions.md`.
+On real Amoy, `.env.local` now also carries `DISBURSEMENT_ADDRESS` (`0x8305ECfbd9365efF27efD6f360C36589C006e5eA`) and `DISBURSEMENT_START_BLOCK` (`48925371`), so the payout card and public Payouts section are switched on there too. Remember: on Amoy, anything that sends a transaction needs POL in the sponsor wallet and `FACTORY_OWNER_KEY` in `.env.local`. See `docs/mining_instructions.md`.
 
 ## 12. Troubleshooting
 

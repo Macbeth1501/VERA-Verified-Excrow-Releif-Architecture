@@ -7,7 +7,7 @@
  *
  * The database is in memory; nothing local is touched, but the contracts and vaults are real.
  *
- * HOW TO RUN: it takes 10-15 minutes (about 30 sequential transactions; its own limit is 900 s), so
+ * HOW TO RUN: it takes 10-25 minutes (about 35 sequential transactions; its own limit is 35 minutes), so
  * never run it in a foreground command with a shell timeout, and never pipe it through tail/head:
  * a shell cutoff kills it mid-run (exit 143) after POL is spent, and it cannot resume (a new
  * in-memory database and a new campaign each run). Run it in the background with output sent to a
@@ -15,7 +15,10 @@
  *
  *   LIVE_AMOY=1 npx vitest run lib/escrow/live-amoy.test.ts > live.log 2>&1
  *
- * COST: about 0.5 POL per run at 30 gwei (publishing the vault alone is about 0.2 POL, and the
+ * It also ends with a real beneficiary registration and a real 30 mINR payout through the Disbursement
+ * contract (needs DISBURSEMENT_ADDRESS in .env.local), so the whole chain is proven on Amoy.
+ *
+ * COST: about 0.3-0.5 POL per run (0.283 measured at 50 gwei, plus a few cents for the payout) (publishing the vault alone is about 0.2 POL, and the
  * throwaway wallets it creates keep their leftover gas, which cannot be recovered). It refuses to
  * start with less than 1 POL in the sponsor wallet, or when gas is above the app's ceiling.
  */
@@ -42,6 +45,14 @@ describe.skipIf(!live)("live Amoy: publish, attest, approve, release", () => {
     "moves real money only when the rules are met",
     async () => {
       loadEnvLocal();
+      // The fresh in-memory database has nothing to catch up on before this run, so start every indexer
+      // stream just before it. Scanning from the Factory's deploy block (about 960,000 blocks, in 2,000-block
+      // reads) is what pushed the public-ledger step past the old 900 s limit on 2026-09-30.
+      {
+        const head = await createPublicClient({ chain: polygonAmoy, transport: fallback(process.env.RPC_URL!.split(",").map((u) => http(u.trim()))) }).getBlockNumber();
+        const start = String(head - 5n);
+        for (const k of ["INDEXER_START_BLOCK", "MANAGER_START_BLOCK", "REGISTRY_START_BLOCK", "DISBURSEMENT_START_BLOCK"]) process.env[k] = start;
+      }
       const { resetEnvCache } = await import("@/lib/env");
       resetEnvCache();
       const { getDb, resetDbForTests } = await import("@/lib/db");
@@ -198,23 +209,44 @@ describe.skipIf(!live)("live Amoy: publish, attest, approve, release", () => {
       expect(organizerBalance).toBe(250_000_000n);
       expect(vaultBalance).toBe(0n);
 
+      // ---- a beneficiary is registered on the real registry and paid 30 mINR through the real Disbursement contract
+      expect(env.DISBURSEMENT_ADDRESS).toBeTruthy();
+      const beneficiariesRoute = await import("@/app/api/v1/campaigns/[id]/beneficiaries/route");
+      const disburseRoute = await import("@/app/api/v1/milestones/[id]/disburse/route");
+      const H1 = `0x${"a1".repeat(32)}`;
+      const registered = await call(beneficiariesRoute.POST as never, org.cookie, { identityHash: H1, payoutMethod: "bank transfer" }, campaignId);
+      if (registered.status !== 201) log(`beneficiary failed: ${registered.status} ${JSON.stringify(registered.body)}`);
+      expect(registered.status).toBe(201);
+      log("beneficiary registered on the registry");
+      const paid = await call(disburseRoute.POST as never, admin.cookie, { beneficiaryId: registered.body.beneficiary.id, amountMinorUnits: "30000000" }, m1);
+      if (paid.status !== 201) log(`payout failed: ${paid.status} ${JSON.stringify(paid.body)}`);
+      expect(paid.status).toBe(201);
+      expect(paid.body.disbursement).toMatchObject({ status: "CONFIRMED", amountMinorUnits: "30000000", identityHash: H1 });
+      const disbursement = env.DISBURSEMENT_ADDRESS as `0x${string}`;
+      const dAbi = parseAbi(["function disbursedTotal(address) view returns (uint256)", "function isDisbursed(address,uint256) view returns (bool)"]);
+      expect(await client.readContract({ address: disbursement, abi: dAbi, functionName: "disbursedTotal", args: [vault as `0x${string}`] })).toBe(30_000_000n);
+      expect(await client.readContract({ address: disbursement, abi: dAbi, functionName: "isDisbursed", args: [vault as `0x${string}`, 0n] })).toBe(true);
+      log(`payout recorded on Amoy: approve ${paid.body.disbursement.approveTxHash ?? "(existing allowance)"}, disburse ${paid.body.disbursement.txHash}`);
+
       // ---- the public ledger catches up, shows both releases and reconciles exactly
       const ledgerRoute = await import("@/app/api/v1/campaigns/[id]/ledger/route");
-      let ledger: { escrow: { heldMinorUnits: string; totalReleasedMinorUnits: string }; reconciliation: { status: string }; ledger: { type: string }[] } | null = null;
+      let ledger: { escrow: { heldMinorUnits: string; totalReleasedMinorUnits: string }; payouts: { totalMinorUnits: string; entries: { amount: string; identityHash: string }[] }; reconciliation: { status: string }; ledger: { type: string }[] } | null = null;
       for (let i = 0; i < 40; i++) {
         const res = await ledgerRoute.GET(new Request("http://localhost/x"), { params: Promise.resolve({ id: campaignId }) });
         ledger = await res.json();
-        if (ledger!.escrow.totalReleasedMinorUnits === "250000000" && ledger!.reconciliation.status === "match") break;
+        if (ledger!.escrow.totalReleasedMinorUnits === "250000000" && ledger!.payouts.totalMinorUnits === "30000000" && ledger!.reconciliation.status === "match") break;
         await new Promise((r) => setTimeout(r, 4000));
       }
       log(`ledger: held ${ledger!.escrow.heldMinorUnits}, released ${ledger!.escrow.totalReleasedMinorUnits}, reconciliation ${ledger!.reconciliation.status}`);
       expect(ledger!.escrow.heldMinorUnits).toBe("0");
       expect(ledger!.escrow.totalReleasedMinorUnits).toBe("250000000");
       expect(ledger!.reconciliation.status).toBe("match");
+      expect(ledger!.payouts.entries).toHaveLength(1);
+      expect(ledger!.payouts.entries[0]).toMatchObject({ amount: "30000000", identityHash: H1 });
       expect(ledger!.ledger.filter((e) => e.type === "MilestoneReleased")).toHaveLength(2);
       expect(ledger!.ledger.filter((e) => e.type === "MilestoneAttested")).toHaveLength(4);
       expect(ledger!.ledger.filter((e) => e.type === "CouncilApproved")).toHaveLength(3);
     },
-    900_000,
+    2_100_000, // 35 minutes
   );
 });
