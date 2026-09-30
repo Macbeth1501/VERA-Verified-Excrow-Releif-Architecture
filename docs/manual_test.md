@@ -75,7 +75,7 @@ Important: anvil keeps everything in memory. If you close Terminal A, the chain 
 
 ## 4. Deploy the contracts to the local chain
 
-In **Terminal B**, go to the contracts folder and deploy three contracts in this exact order. Do not skip or reorder, because the addresses below depend on the order.
+In **Terminal B**, go to the contracts folder and deploy the contracts in this exact order. Do not skip or reorder, because later ones take earlier addresses as constructor arguments.
 
 ```bash
 cd /c/Users/Rochan/Desktop/Coding/Projects/vera-mvp/contracts
@@ -90,9 +90,15 @@ forge create src/MilestoneManager.sol:MilestoneManager --rpc-url $R --private-ke
 
 # 3. The campaign factory (takes the token address from step 1)
 forge create src/CampaignFactory.sol:CampaignFactory --rpc-url $R --private-key $K --broadcast --constructor-args 0x5FbDB2315678afecb367f032d93F642f64180aa3
+
+# 4. The beneficiary registry (no constructor args)
+forge create src/BeneficiaryRegistry.sol:BeneficiaryRegistry --rpc-url $R --private-key $K --broadcast
+
+# 5. Disbursement (takes token, manager, registry addresses from steps 1, 2, 4 — needed only if you're testing Step 14/payouts)
+forge create src/Disbursement.sol:Disbursement --rpc-url $R --private-key $K --broadcast --constructor-args 0x5FbDB2315678afecb367f032d93F642f64180aa3 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 <registry address from step 4>
 ```
 
-Each command prints a line `Deployed to: 0x...`. On a fresh anvil they will be exactly:
+Each command prints a line `Deployed to: 0x...`. On a fresh anvil, steps 1-3 will be exactly:
 
 | Contract | Address |
 |---|---|
@@ -100,7 +106,9 @@ Each command prints a line `Deployed to: 0x...`. On a fresh anvil they will be e
 | MilestoneManager | `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512` |
 | CampaignFactory | `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` |
 
-If any of yours differ, use the ones printed on your screen everywhere below, and use the real MockINR address in command 3.
+Steps 4 and 5 are deterministic too on a truly fresh anvil, but depend on exactly what else has been deployed from account 0 first, so always use what's printed on your screen rather than assuming a fixed address for them.
+
+If any of yours differ, use the ones printed on your screen everywhere below, and use the real MockINR address in command 3. Skip steps 4-5 (and the matching env vars in section 5) if you only need Steps 1-12 (escrow/attestation/council), not beneficiaries or payouts.
 
 Now tell the factory which manager to use (every campaign vault binds to it permanently, so this must be done before any campaign is published):
 
@@ -144,6 +152,11 @@ FACTORY_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
 MILESTONE_MANAGER_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
 INDEXER_START_BLOCK=0
 MANAGER_START_BLOCK=0
+# Only if you deployed steps 4-5 above (beneficiaries / payouts):
+BENEFICIARY_REGISTRY_ADDRESS=<address from step 4>
+REGISTRY_START_BLOCK=0
+DISBURSEMENT_ADDRESS=<address from step 5>
+DISBURSEMENT_START_BLOCK=0
 # anvil account 0: a publicly known dev key with fake money
 FACTORY_OWNER_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 ```
@@ -152,7 +165,9 @@ What the important lines mean:
 
 - `DATABASE_URL` is a separate local database, so this testing never mixes with your Amoy data.
 - `FACTORY_OWNER_KEY` switches on the features that send transactions (publishing, donating, attesting, releasing). Here it is the anvil dev key, so it spends fake money only.
-- `INDEXER_START_BLOCK=0` and `MANAGER_START_BLOCK=0` make the public ledger read the local chain from the beginning.
+- `INDEXER_START_BLOCK=0` and `MANAGER_START_BLOCK=0` (and `REGISTRY_START_BLOCK`/`DISBURSEMENT_START_BLOCK` if set) make the public ledger read the local chain from the beginning.
+
+**This file has bitten a real Amoy session before:** it takes priority over `.env.local` in `pnpm dev`, silently, with no on-screen warning. Leaving it in place after a local-chain session (even just forgetting it exists) has previously sent what looked like real Amoy activity — a published campaign, a donation — to a local anvil chain instead, with no error. If you ever see a vault address that "already has history" on `amoy.polygonscan.com`, or a donation transaction hash it says it cannot find, check for this file first before anything else. See section 11.
 
 ---
 
@@ -202,7 +217,7 @@ Expected: it prints that the account is now an admin. Sign in as `admin@test.com
 
 ### Step 3: Approve the organizer
 1. Sign in as `org@test.com`, open the account page and choose "Want to run a campaign? Become an organizer".
-2. Fill in a legal name, registration number and jurisdiction, and attach any file (it is only fingerprinted in your browser; the file is not uploaded). Submit. The status should be "pending".
+2. Fill in a legal name, registration number and jurisdiction, and attach a JPEG/PNG/WEBP/GIF/PDF file up to 8 MB (it is fingerprinted in your browser and uploaded, so an admin can open it before approving). Submit. The status should be "pending".
 3. Sign in as `admin@test.com`, open the admin console, and click **Approve** on the application.
 4. Expected: the application shows as verified with "Recorded on-chain". (If it says "not configured", the website is not using the settings from section 5; check the file name and restart `pnpm dev`.)
 
@@ -288,6 +303,20 @@ npx vitest run lib/escrow/live-amoy.test.ts
 
 Expected: `1 passed`. **Never run this with your Amoy settings**: against Amoy it costs about 0.5 POL a run. The project rule is to spend POL only when strictly necessary.
 
+There is a second one, `lib/disbursement/live-local.test.ts`, covering beneficiary registration and a payout end to end (needs all five contracts from section 4, including Disbursement):
+
+```bash
+LIVE_LOCAL=1 \
+FACTORY_OWNER_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+RPC_URL=http://127.0.0.1:8545 \
+MOCK_INR_ADDRESS=<step 1 address> FACTORY_ADDRESS=<step 3 address> \
+MILESTONE_MANAGER_ADDRESS=<step 2 address> BENEFICIARY_REGISTRY_ADDRESS=<step 4 address> \
+DISBURSEMENT_ADDRESS=<step 5 address> \
+npx vitest run lib/disbursement/live-local.test.ts
+```
+
+Expected: `1 passed` (takes about 90 seconds). It refuses to run against anything but `127.0.0.1`/`localhost`, so it can never spend Amoy POL either.
+
 ---
 
 ## 9. The free automated checks (no chain needed)
@@ -295,8 +324,8 @@ Expected: `1 passed`. **Never run this with your Amoy settings**: against Amoy i
 From the repository root:
 
 ```bash
-pnpm test                      # contract tests: 45 passing (fuzz at 10,000 runs)
-pnpm test:web                  # web tests against simulated chains: about 215 passing, 1 skipped
+pnpm test                      # contract tests: 73 passing (fuzz at 10,000 runs)
+pnpm test:web                  # web tests against simulated chains: about 329 passing, 2 skipped
 cd apps/web && npx tsc --noEmit && npx eslint . && cd ../..    # should print nothing
 pnpm build                     # production build; stop pnpm dev first
 ```
@@ -316,8 +345,8 @@ If you skip step 2 after restarting anvil, the website will show data from a cha
 ## 11. Going back to normal (the real Amoy testnet)
 
 1. Press Ctrl+C in Terminals A and C.
-2. Delete `apps/web/.env.development.local`.
-3. Start `pnpm dev` again. It now reads `apps/web/.env.local` (Amoy).
+2. **Delete or rename `apps/web/.env.development.local`** (e.g. `mv apps/web/.env.development.local apps/web/.env.development.local.bak` if you want to keep it for next time). Do this as soon as you're done with a local-chain session, not "eventually" — it is easy to forget it exists, and it silently overrides `.env.local` with no warning on screen. This exact thing happened once: a campaign and a donation were made believing they were on real Amoy, while `pnpm dev` was actually still pointed at a long-gone local anvil chain.
+3. Start `pnpm dev` again. It now reads `apps/web/.env.local` (Amoy). If you're not sure which one it's using, check the admin console or a fresh publish/donation against `cast balance`/`amoy.polygonscan.com` — Amoy activity should show up there within seconds.
 
 Remember: on Amoy, anything that sends a transaction needs POL in the sponsor wallet and `FACTORY_OWNER_KEY` in `.env.local`. See `docs/mining_instructions.md`.
 

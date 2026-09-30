@@ -7,6 +7,14 @@
  *
  * The database is in memory; nothing local is touched, but the contracts and vaults are real.
  *
+ * HOW TO RUN: it takes 10-15 minutes (about 30 sequential transactions; its own limit is 900 s), so
+ * never run it in a foreground command with a shell timeout, and never pipe it through tail/head:
+ * a shell cutoff kills it mid-run (exit 143) after POL is spent, and it cannot resume (a new
+ * in-memory database and a new campaign each run). Run it in the background with output sent to a
+ * log file, and follow the "[live]" lines in that file:
+ *
+ *   LIVE_AMOY=1 npx vitest run lib/escrow/live-amoy.test.ts > live.log 2>&1
+ *
  * COST: about 0.5 POL per run at 30 gwei (publishing the vault alone is about 0.2 POL, and the
  * throwaway wallets it creates keep their leftover gas, which cannot be recovered). It refuses to
  * start with less than 1 POL in the sponsor wallet, or when gas is above the app's ceiling.

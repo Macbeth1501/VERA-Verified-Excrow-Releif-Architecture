@@ -12,6 +12,8 @@ For the current state, deployed addresses and open issues, read [`docs/PROGRESS_
 | `CampaignFactory` | Deploys one vault per campaign and enforces, on-chain and non-bypassably: the organizer is verified, the admin-cost cap does not exceed the category ceiling (10% disaster relief, 15% medical, 20% community), and the milestone percentages sum to exactly 100. The owner verifies organizers and sets the milestone manager. |
 | `CampaignVault` | Holds one campaign's escrowed mINR. Anyone can deposit; funds leave only through `releaseForMilestone`, callable solely by the milestone manager fixed at construction (no setter, no admin override). Has an optional, disclosed `pause`. |
 | `MilestoneManager` | One shared contract for every vault (Amoy: `0xe6d7222dDe3eE4b9688269427631aDF49229e747`). The vault's organizer registers milestones (at least 2 confirmations each); owner-curated attestors confirm them once each (never the organizer); at M a milestone is Verified. A release is permissionless once milestones total 100, go in order and are Verified, and needs `councilThreshold` (3) council approvals when it exceeds the auto-release limit (100 mINR). Pays the campaign's organizer and emits `MilestoneReleased`. |
+| `BeneficiaryRegistry` | One shared contract, keyed by vault address (Amoy: `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D`). `register(vault, identityHash, photoHash)`, callable only by that vault's organizer, reverts on a repeat `identityHash` for the same vault. No owner, no plaintext. |
+| `Disbursement` | Downstream of the manager (not yet deployed). `disburse(vault, milestoneIndex, identityHash, amount, payoutRef)`, callable only by the vault's organizer after they approve this contract for `amount` of mINR; refuses unless the milestone is Released, the beneficiary is registered for that vault, the milestone was not already paid, and the running total stays within `manager.releasedTotal(vault)`. Emits `PayoutRecorded`. |
 
 `CampaignVault.releaseForMilestone` emits no event, so `MilestoneManager.MilestoneReleased` is the only record of a release (the web app's indexer reads it). Vaults created before the real manager was set (Factory campaigns #0-#3) are bound to a placeholder and can never release funds. See the progress log.
 
@@ -21,7 +23,7 @@ Run from this directory:
 
 ```bash
 forge build
-forge test                                        # 45 tests; fuzz tests run 10,000 times
+forge test                                        # 73 tests across 6 suites; fuzz tests run 10,000 times
 forge test --match-contract CampaignFactoryTest   # one contract
 forge test --match-test testFuzz_ -vvv            # by name, verbose
 ```
@@ -36,7 +38,7 @@ forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
 
 A campaign cannot be created until the Factory has a milestone manager, because every vault binds its manager permanently when it is created.
 
-**Spending POL:** Amoy's gas price is normally about 30 gwei but has spiked past 500, and one uncapped `forge create` of `MilestoneManager` cost 1.41 POL. Check `cast gas-price` first and pass `--gas-price` (for example `--gas-price 60gwei --priority-gas-price 30gwei`). Deploy `MilestoneManager` with `forge create src/MilestoneManager.sol:MilestoneManager --rpc-url $RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast --constructor-args <autoReleaseLimit> <councilThreshold>`. Slither (`py -m slither src/MilestoneManager.sol --filter-paths lib/`) reports no findings.
+**Spending POL:** Amoy's gas price is normally about 30 gwei but has spiked past 500, and one uncapped `forge create` of `MilestoneManager` cost 1.41 POL. Check `cast gas-price` first and pass `--gas-price` (for example `--gas-price 60gwei --priority-gas-price 30gwei`). Deploy `MilestoneManager` with `forge create src/MilestoneManager.sol:MilestoneManager --rpc-url $RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast --constructor-args <autoReleaseLimit> <councilThreshold>`. `slither . --filter-paths lib/` run across the whole project (all six contracts together) reports 4 informational/low findings and 0 medium/high; see `docs/PROGRESS_LOG.md`'s Module 4.3 entry for what they are and why they're accepted as-is.
 
 Testnet POL for gas comes from a faucet; see [`docs/mining_instructions.md`](../docs/mining_instructions.md).
 

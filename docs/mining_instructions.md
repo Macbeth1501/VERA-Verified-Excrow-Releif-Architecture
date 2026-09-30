@@ -17,7 +17,7 @@ All commands are **Git Bash** (Unix syntax) and use Foundry's `cast`, which is a
 | Currency | POL (used to pay gas) |
 | Private key | Stored in `contracts/.env` as `DEPLOYER_PRIVATE_KEY`. Never paste it into chat, docs or commits. |
 | Explorer page | https://amoy.polygonscan.com/address/0xb2Ab1471d98909237B3F3828E7422182584E11E3 |
-| Balance on 2026-09-19 | **about 0.01 POL** (was 1.90 before deploying MilestoneManager at a gas spike, 1.41 POL, and running live tests). It needs a top-up before anything on-chain will work again. |
+| Balance on 2026-09-29 | **11.825 POL** (was about 0.01 on 2026-09-19 after deploying MilestoneManager at a gas spike, 1.41 POL, and running live tests; topped up substantially since). Comfortable for a round of testing and the `Disbursement` deploy once gas is reasonable. |
 
 Related deployed contracts (for reference):
 
@@ -26,6 +26,8 @@ Related deployed contracts (for reference):
 | MockINR | `0x9b6f00a1ce627a3e0d2da601253704084d8fc52c` |
 | MilestoneManager | `0xe6d7222dDe3eE4b9688269427631aDF49229e747` |
 | CampaignFactory | `0x6931E776da5db1D9e5890407FE268705D70740bD` |
+| BeneficiaryRegistry | `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D` |
+| Disbursement | not yet deployed |
 
 Only the **address** is ever needed to receive tokens. You never need the main wallet's private key for this guide except when you later spend from it (deployments), and that already lives in `contracts/.env`.
 
@@ -233,7 +235,7 @@ The faucet drip is small, but Amoy work is cheap. Measured on 2026-09-19 unless 
 | Register milestones, attest, approve (each) | well under 0.01 POL, funded from the actor's own gas estimate |
 | A live end-to-end test run (`live-amoy.test.ts`) | about 0.5 POL; the throwaway wallets it creates keep their leftover gas |
 
-The sponsor wallet is drained by real use, not just deployments: each new organizer, donor, attestor and council member spends some, and publishing a campaign is the big one. **Aim for at least 3 POL before a round of testing** (the live test refuses to start under 1 POL). Later steps add more deployments (possibly Disbursement and BeneficiaryRegistry), so a stockpile of 5 to 10 POL is comfortable for the whole MVP. If the sponsor runs dry, an organizer's publish or a donor's donation fails with a clear message and can be retried after you top it up.
+The sponsor wallet is drained by real use, not just deployments: each new organizer, donor, attestor and council member spends some, and publishing a campaign is the big one. **Aim for at least 3 POL before a round of testing** (the live test refuses to start under 1 POL). One deployment is still left (`Disbursement`, about 0.03 POL at normal gas), so a stockpile of 5 to 10 POL is comfortable for the rest of the MVP. If the sponsor runs dry, an organizer's publish or a donor's donation fails with a clear message and can be retried after you top it up.
 
 ---
 

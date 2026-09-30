@@ -66,7 +66,7 @@ graph TD
 | **Styling & Design System**| Tailwind CSS `v4.0` | Sleek dark-mode aesthetic, financial dashboards, glassmorphism, responsive tables | `apps/web/app/globals.css` |
 | **Database & ORM** | SQLite (`better-sqlite3`) + Drizzle ORM | Fast, embedded ACID relational store for off-chain profiles, state machines, and indexer cursors | `apps/web/lib/db/` |
 | **Web3 Client Engine** | Viem `v2.56.7` | Type-safe JSON-RPC interface, contract simulation, event decoding, raw transaction signing | `apps/web/lib/chain/` |
-| **E2E Browser Automation** | Selenium WebDriver / Chrome DevTools | Headless browser execution across multiple roles (Admin, Donor, Attestor, Council) | Test pipelines & manual test guides |
+| **Manual/ad hoc E2E** | Chrome DevTools, occasionally a scratch Playwright-core script | Multi-role walkthroughs (Admin, Donor, Attestor, Council) verified by hand; not part of the committed test suite | `docs/manual_test.md` (script), scratch folders (not in the repo) |
 | **Unit & Integration Test**| Vitest `v5.0.1` | Fast unit testing of cryptography, token buckets, and donation state machines | `apps/web/lib/**/*.test.ts` |
 | **Authentication & Crypto**| `jose` + `bcryptjs` + Web Crypto API | HS256 JWT sessions in HttpOnly cookies, bcrypt password hashing, AES-256-GCM wallet encryption | `apps/web/lib/auth/` |
 | **Data Validation** | Zod `v4.6.5` | Shared runtime schema validation for API requests and UI form inputs | `apps/web/lib/campaigns/validation.ts` |
@@ -119,12 +119,13 @@ classDiagram
     }
 
     class BeneficiaryRegistry {
-        +registerBeneficiary(bytes32 programId, bytes32 identityCommitment)
-        +verifyUniqueness(bytes32 programId, bytes32 identityCommitment)
+        +register(address vault, bytes32 identityHash, bytes32 photoHash)
+        +isRegistered(address vault, bytes32 identityHash) bool
     }
 
     class Disbursement {
-        +recordDisbursement(address vault, uint256 milestoneIndex, bytes32 beneficiaryCommitment, uint256 amount)
+        +disburse(address vault, uint256 milestoneIndex, bytes32 identityHash, uint256 amount, bytes32 payoutRef)
+        +payableRemaining(address vault) uint256
     }
 
     CampaignFactory ..> CampaignVault : Deploys (1 per campaign)
@@ -174,16 +175,16 @@ classDiagram
         $$\text{Entitlement} = \left( \text{TotalRaised} \times \frac{\sum_{j=0}^{i} \text{targetPct}_j}{100} \right) - \text{TotalPreviouslyReleased}$$
     *   Ensures that an underfunded campaign still disburses proportional shares without arithmetic underflow.
 
-#### 5. `BeneficiaryRegistry.sol` (Privacy-Preserving Uniqueness Registry)
+#### 5. `BeneficiaryRegistry.sol` (Privacy-Preserving Uniqueness Registry) — deployed, Amoy `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D`
 *   **Purpose**: Prevents "ghost beneficiaries" and duplicate relief claim fraud across disaster zones without recording personally identifiable information (PII) on the public blockchain.
 *   **Cryptographic Approach**:
-    *   A field worker generates a client-side identity commitment:
-        $$\text{IdentityCommitment} = \text{SHA256}(\text{NationalID} \mathbin{\Vert} \text{CampaignSalt})$$
-    *   The registry records `mapping(bytes32 programId => mapping(bytes32 commitment => bool))`.
-    *   If a duplicate commitment is submitted, the contract reverts with `DuplicateBeneficiary()`.
+    *   A field worker generates a client-side identity hash: `SHA256(salt + "\0" + normalized identity fragment)`, NFKC-normalized so the same name typed differently still collides on purpose.
+    *   The "program" is the campaign's own vault address, not a separate `programId`, so `register(vault, identityHash, photoHash)` reuses the same organizer check the manager uses.
+    *   A repeat `identityHash` for the same vault reverts with `DuplicateBeneficiary(vault, hash)`. No owner, no admin function.
 
-#### 6. `Disbursement.sol` (Post-Release Payout Tracker)
-*   **Purpose**: Connects on-chain released funds with actual field payments, anchoring payout receipts to registered beneficiary commitments.
+#### 6. `Disbursement.sol` (Post-Release Payout Tracker) — written and tested, **not yet deployed**
+*   **Purpose**: Connects on-chain released funds with actual field payments. Built downstream of the already-deployed, immutable `MilestoneManager` (a divergence from the original design, where the vault would release directly into `Disbursement`): the manager still pays the organizer, and this contract caps what the organizer can then record as paid out.
+*   **Flow**: the organizer approves this contract for `amount` of mINR, then calls `disburse(vault, milestoneIndex, identityHash, amount, payoutRef)`. It refuses unless the milestone is Released on the real manager, the beneficiary is registered for that vault on the real registry, that milestone was not paid before, and the running total for the vault stays within `manager.releasedTotal(vault)`. Emits `PayoutRecorded(vault, milestoneIndex, identityHash, amount, payoutRef, organizer)` — the money itself comes to rest in the contract, since the actual bank/mobile-money transfer is simulated, not called.
 
 ---
 
@@ -211,7 +212,7 @@ flowchart LR
 *   **Implementation**:
     *   `foundry.toml` configures fuzzing to **10,000 runs per test** (`runs = 10000`), subjecting deposit math, percentage calculations, and authorization matrices to extreme boundary values.
     *   `Deploy.s.sol` orchestrates deterministic multi-contract deployments.
-    *   Slither static analysis integration guarantees 0 vulnerabilities (0 high, 0 medium findings).
+    *   Slither, run across all six contracts together: 4 informational/low findings, 0 high, 0 medium (an uninitialized-local false positive, the documented "vault emits no event on release" design choice, and two deployer-controlled constructor params with no zero-address check — see `docs/PROGRESS_LOG.md`'s Module 4.3 entry).
 
 #### 2. Anvil (Local Ephemeral Node)
 *   **What it is**: A high-performance local Ethereum node bundled with Foundry.
@@ -244,11 +245,13 @@ In VERA, web3 interactions involve multiple concurrent actors:
 Testing this ecosystem with simple API unit tests is insufficient because:
 *   **React 19 Hydration Dynamics**: Wallet state and cryptographic keys are initialized client-side in the browser.
 *   **State Machine Transitions**: A donation goes through 5 consecutive asynchronous states (`gas` $\to$ `mint` $\to$ `fee` $\to$ `approve` $\to$ `deposit`).
-*   **Real-Time Polling & WebSockets**: The public audit dashboard dynamically updates every 10 seconds based on live indexer reconciliation.
+*   **Live Polling (no WebSockets)**: The public audit dashboard re-fetches the ledger every 10 seconds while the tab is visible, plain HTTP polling, not a push channel.
 
-#### How Selenium / DevTools Automation Is Implemented
-*   **Multi-Context Session Orchestration**: Selenium creates isolated, incognito browser contexts representing each distinct actor simultaneously.
-*   **Automated Step-by-Step Scenario**:
+**Honest status, so this doesn't overstate it:** there is no committed, repeatable browser test suite in the repo — `pnpm test`/`pnpm test:web` are unit and integration tests against fake/in-memory chains, and that gap is tracked in `docs/PROGRESS_LOG.md`. The full multi-actor walkthrough below has been run by hand and, on a few sessions, with a scratch (not committed) Playwright-core script driving a real Chrome — useful for catching UI-only bugs a route test can't see, but not something `pnpm test` runs today.
+
+#### How the manual/scratch browser walkthrough works
+*   **Multi-Context Session Orchestration**: separate incognito browser windows/profiles represent each distinct actor simultaneously (one cookie = one signed-in person).
+*   **Step-by-Step Scenario** (see `docs/manual_test.md` for the full script, runnable at 0 POL against a local anvil chain):
     1.  *Admin Context*: Logs in, approves pending organizer KYB, sets on-chain attestor role.
     2.  *Organizer Context*: Creates "Assam Flood Relief 2026" with 3 milestones, deploys vault on Anvil.
     3.  *Donor Context*: Registers new user, receives auto-generated AES-256 encrypted wallet, mints 500 mINR, and executes deposit.
@@ -366,6 +369,9 @@ To remove crypto friction for non-technical donors and charity organizers while 
 *   **Nonce Serialization**: A critical queueing lock prevents race conditions and nonce collisions when multiple donors transact simultaneously.
 *   **Gas Spike Protection**: The sponsor engine monitors network base fees; if the gas price exceeds 150 gwei, execution pauses to protect the sponsor wallet from drain attacks.
 
+### 7.3 Uploaded Documents (KYB / Milestone Evidence)
+Organizer KYB documents and attestor milestone evidence are hashed client-side (SHA-256) as before — that hash is still what travels on-chain / into `proofHash` — but the file bytes are also uploaded and stored (SQLite blob, `documents` table, migration `0008`), so an admin (KYB) or admin/attestor/council (evidence) can actually open what was submitted. The server independently re-hashes the uploaded bytes and refuses a mismatch, so the hash still proves what was reviewed. Uploads are capped at 8 MB and restricted to a JPEG/PNG/WEBP/GIF/PDF allowlist — never a script-executable type — and served back through a role-gated `GET /api/v1/documents/:id` route. This reverses an earlier "hash only, file never leaves the browser" design choice, done deliberately at the project owner's request; see `docs/PROGRESS_LOG.md`'s 2026-09-29 entry.
+
 ---
 
 ## 8. Deployment & Execution Runbook
@@ -390,6 +396,12 @@ forge create src/MilestoneManager.sol:MilestoneManager --rpc-url $R --private-ke
 # 3. Deploy CampaignFactory
 forge create src/CampaignFactory.sol:CampaignFactory --rpc-url $R --private-key $K --broadcast --constructor-args <MOCK_INR_ADDRESS>
 
+# 4. Deploy BeneficiaryRegistry (no constructor args; needed for Step 13/14 testing)
+forge create src/BeneficiaryRegistry.sol:BeneficiaryRegistry --rpc-url $R --private-key $K --broadcast
+
+# 5. Deploy Disbursement (token, manager, registry addresses from steps 1, 2, 4; needed for Step 14 testing)
+forge create src/Disbursement.sol:Disbursement --rpc-url $R --private-key $K --broadcast --constructor-args <MOCK_INR_ADDRESS> <MILESTONE_MANAGER_ADDRESS> <REGISTRY_ADDRESS>
+
 # Terminal 3: Run Full-Stack Web App
 cd apps/web
 pnpm install
@@ -405,6 +417,7 @@ pnpm dev
 | **CampaignFactory** | `0x6931E776da5db1D9e5890407FE268705D70740bD` | `47969967` |
 | **MilestoneManager** | `0xe6d7222dDe3eE4b9688269427631aDF49229e747` | `47997230` |
 | **BeneficiaryRegistry** | `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D` | `48161539` |
+| **Disbursement** | not yet deployed | — |
 
 ---
 
@@ -418,6 +431,8 @@ pnpm dev
 | **Single-Attestor Collusion** | Minimum 2 distinct attestors required per milestone | `MilestoneManager.sol` |
 | **Self-Attestation by Organizer** | `msg.sender != organizer` enforced on-chain | `MilestoneManager.sol` |
 | **Large Disbursement Takeover** | Releases > 100 mINR require 3-of-5 Council approvals | `MilestoneManager.sol` |
-| **Ghost Beneficiary Duplication** | On-chain identity commitment hash check per program | `BeneficiaryRegistry.sol` |
+| **Ghost Beneficiary Duplication** | On-chain identity hash check per vault | `BeneficiaryRegistry.sol` |
+| **Payout Exceeding What Was Released** | `disbursedTotal[vault] + amount <= manager.releasedTotal(vault)`, checked on-chain | `Disbursement.sol` |
+| **Double-Paying a Milestone** | `isDisbursed[vault][milestoneIndex]` set before the token transfer, checked first | `Disbursement.sol` |
 | **Double Spending / Reentrancy** | OpenZeppelin `ReentrancyGuard` on all state-modifying escrow paths | `CampaignVault.sol` & `MilestoneManager.sol` |
 | **Silent Database Ledger Drift** | Continuous 3-way reconciliation comparing event logs to raw storage balances | `apps/web/lib/indexer/` |
