@@ -98,6 +98,11 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             </Link>
           ) : null}
           {live ? (
+            <Link href={`/activity?campaign=${campaign.id}`} className="font-medium underline">
+              See on-chain activity
+            </Link>
+          ) : null}
+          {live ? (
             <Link href={`/dashboard/campaigns/${campaign.id}/beneficiaries`} className="font-medium underline">
               Manage beneficiaries
             </Link>

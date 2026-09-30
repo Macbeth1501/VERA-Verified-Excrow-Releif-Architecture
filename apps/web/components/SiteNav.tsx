@@ -99,6 +99,9 @@ export function SiteNav() {
             <Link href="/campaigns" className="text-zinc-700 hover:underline dark:text-zinc-300">
               Campaigns
             </Link>
+            <Link href="/activity" className="text-zinc-700 hover:underline dark:text-zinc-300">
+              Chain activity
+            </Link>
             {current === null ? (
               <span className="ml-auto flex gap-4">
                 <Link href="/login" className="font-medium text-zinc-900 underline dark:text-zinc-50">

@@ -27,10 +27,10 @@ describe("navLinksFor", () => {
     expect(hrefs("donor")).not.toContain("/dashboard/campaigns");
   });
 
-  it("always offers campaigns, the dashboard and the account", () => {
+  it("always offers campaigns, chain activity, the dashboard and the account", () => {
     for (const role of ["donor", "organizer", "attestor", "council", "admin"] as const) {
       const hrefs = navLinksFor(role).map((l) => l.href);
-      expect(hrefs).toEqual(expect.arrayContaining(["/campaigns", "/dashboard", "/dashboard/donor"]));
+      expect(hrefs).toEqual(expect.arrayContaining(["/campaigns", "/activity", "/dashboard", "/dashboard/donor"]));
     }
   });
 

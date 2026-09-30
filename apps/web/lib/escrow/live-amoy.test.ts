@@ -81,7 +81,7 @@ describe.skipIf(!live)("live Amoy: publish, attest, approve, release", () => {
         const u = await registerDonor(db, { email: `${label}-${stamp}-${++n}@example.com`, password: "correct-horse-battery" }, env.WALLET_ENCRYPTION_KEY);
         return { ...u, cookie: `vera_session=${await signSession({ userId: u.id, role: "donor" })}` };
       };
-      const call = async (handler: (r: Request, c: { params: Promise<{ id: string }> }) => Promise<Response>, cookie: string, body?: unknown, id = "x") => {
+      const callOnce = async (handler: (r: Request, c: { params: Promise<{ id: string }> }) => Promise<Response>, cookie: string, body?: unknown, id = "x") => {
         const res = await handler(
           new Request("http://localhost/x", {
             method: "POST",
@@ -91,6 +91,20 @@ describe.skipIf(!live)("live Amoy: publish, attest, approve, release", () => {
           { params: Promise.resolve({ id }) },
         );
         return { status: res.status, body: await res.json().catch(() => null) };
+      };
+      // Logs every failed response (a failure once cost 0.3 POL with no message to read), and retries a
+      // CHAIN_FAILED (422) up to twice: a public RPC node lagging a block or a dropped connection is not a
+      // rule violation, and the API is built for the user to simply try again. Refusals the test expects
+      // (409) and real successes are never retried.
+      const call: typeof callOnce = async (handler, cookie, body, id) => {
+        let res = await callOnce(handler, cookie, body, id);
+        for (let attempt = 1; attempt <= 2 && res.status === 422 && res.body?.error?.code === "CHAIN_FAILED"; attempt++) {
+          log(`chain step failed (attempt ${attempt}): ${res.body.error.message}; retrying in 10 s`);
+          await new Promise((r) => setTimeout(r, 10_000));
+          res = await callOnce(handler, cookie, body, id);
+        }
+        if (res.status >= 400) log(`response ${res.status}: ${JSON.stringify(res.body)?.slice(0, 400)}`);
+        return res;
       };
 
       const admin = await make("admin");

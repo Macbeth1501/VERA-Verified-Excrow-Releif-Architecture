@@ -65,6 +65,7 @@ pnpm db:generate # create a SQL migration after editing lib/db/schema.ts
 
 ## Layout
 
+- `/activity` is the public Chain activity timeline (all indexed on-chain events, filterable, with explorer links); API `GET /api/v1/activity`
 - `app/` pages and `app/api/v1/` route handlers (`/dashboard` sends each role to its own workspace; `components/SiteNav.tsx` is the role-aware navigation and warns when another window of the same browser signs in as someone else)
 - `components/` client components (forms, the live dashboard, donation progress)
 - `lib/` the logic, grouped by area: `auth`, `organizers`, `campaigns`, `indexer`, `donations`, `escrow` (attestation, council, release), `beneficiary`, `disbursement`, `files` (uploaded KYB/evidence documents), `chain` (everything that touches the blockchain), `db`, `api`

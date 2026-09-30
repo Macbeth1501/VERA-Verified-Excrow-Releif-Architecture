@@ -221,6 +221,11 @@ export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardDat
         </p>
       ) : null}
       <p className="mt-4 text-zinc-700 dark:text-zinc-300">{campaign.summary}</p>
+      <p className="mt-2 text-sm">
+        <Link href={`/activity?campaign=${campaign.id}`} className="font-medium underline" data-testid="campaign-activity-link">
+          See every on-chain transaction for this campaign
+        </Link>
+      </p>
 
       <div className="mt-6">
         <FreshnessBanner data={data} refreshFailed={refreshFailed} />

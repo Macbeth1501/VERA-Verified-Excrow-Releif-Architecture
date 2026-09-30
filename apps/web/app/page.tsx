@@ -16,6 +16,12 @@ export default function Home() {
           Browse campaigns
         </Link>
         <Link
+          href="/activity"
+          className="rounded-md border border-zinc-300 px-5 py-2.5 font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
+        >
+          See chain activity
+        </Link>
+        <Link
           href="/register"
           className="rounded-md bg-zinc-900 px-5 py-2.5 font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >

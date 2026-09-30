@@ -41,7 +41,11 @@ export function roleHome(role: Role): string {
 
 /** The navigation links a signed-in user sees. Pages still enforce the role themselves; this is only convenience. */
 export function navLinksFor(role: Role): NavLink[] {
-  const links: NavLink[] = [{ href: "/campaigns", label: "Campaigns" }, { href: "/dashboard", label: "My dashboard" }];
+  const links: NavLink[] = [
+    { href: "/campaigns", label: "Campaigns" },
+    { href: "/activity", label: "Chain activity" },
+    { href: "/dashboard", label: "My dashboard" },
+  ];
   switch (role) {
     case "admin":
       links.push({ href: "/dashboard/admin", label: "Admin console" });
