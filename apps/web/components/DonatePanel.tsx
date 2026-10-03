@@ -10,19 +10,19 @@ import { DonationProgress } from "./DonationProgress";
 export type DonateState = "signed_out" | "own_wallet" | "off" | "ready";
 
 const QUICK_AMOUNTS = ["100", "500", "1000"];
-const BOX = "rounded-lg border border-zinc-200 p-6 dark:border-zinc-800";
+const BOX = "rounded-lg border border-rule p-6 ";
 const INPUT =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
+  "mt-1 w-full rounded-md border border-rule-strong bg-well px-3 py-2 text-ink shadow-sm focus:border-copper focus:outline-none ";
 
 function Heading() {
-  return <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Donate to this campaign</h2>;
+  return <h2 className="text-lg font-semibold text-ink ">Donate to this campaign</h2>;
 }
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <section className={BOX}>
       <Heading />
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{children}</p>
+      <p className="mt-2 text-sm text-sand ">{children}</p>
     </section>
   );
 }
@@ -112,27 +112,27 @@ export function DonatePanel({
 
   return (
     <section className={BOX} aria-labelledby="donate-heading">
-      <h2 id="donate-heading" className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Donate to this campaign</h2>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+      <h2 id="donate-heading" className="text-lg font-semibold text-ink ">Donate to this campaign</h2>
+      <p className="mt-1 text-sm text-sand ">
         This is practice money on a test network. We add it to your account for you, then send it to the campaign&apos;s escrow.
       </p>
 
       <form onSubmit={onSubmit} className="mt-4 space-y-4" noValidate>
         <div>
-          <label htmlFor="amount" className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Amount (rupees)</label>
+          <label htmlFor="amount" className="text-sm font-medium text-ink ">Amount (rupees)</label>
           <input id="amount" inputMode="decimal" placeholder="Enter an amount" value={amount} onChange={(e) => setAmount(e.target.value)} className={INPUT} />
           <div className="mt-2 flex gap-2">
             {QUICK_AMOUNTS.map((q) => (
-              <button key={q} type="button" onClick={() => setAmount(q)} className="rounded-md border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900">
+              <button key={q} type="button" onClick={() => setAmount(q)} className="rounded-md border border-rule-strong px-3 py-1 text-sm hover:bg-panel ">
                 ₹{Number(q).toLocaleString("en-IN")}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="rounded-md bg-zinc-50 p-4 text-sm dark:bg-zinc-900">
-          <p className="font-medium text-zinc-800 dark:text-zinc-200">What you pay</p>
-          <dl className="mt-2 space-y-1 text-zinc-700 dark:text-zinc-300">
+        <div className="rounded-md bg-panel p-4 text-sm ">
+          <p className="font-medium text-ink ">What you pay</p>
+          <dl className="mt-2 space-y-1 text-sand ">
             <div className="flex justify-between">
               <dt>Goes to the campaign</dt>
               <dd>{validAmount && minor ? formatMinorUnits(minor) : "-"}</dd>
@@ -141,20 +141,20 @@ export function DonatePanel({
               <dt>Platform fee</dt>
               <dd>{hasFee ? (feeChoice === null ? "your choice below" : formatMinorUnits(fee.toString())) : "₹0.00"}</dd>
             </div>
-            <div className="flex justify-between border-t border-zinc-200 pt-1 font-medium dark:border-zinc-700">
+            <div className="flex justify-between border-t border-rule pt-1 font-medium ">
               <dt>Total</dt>
               <dd>{validAmount && minor ? formatMinorUnits((BigInt(minor) + fee).toString()) : "-"}</dd>
             </div>
           </dl>
           {!hasFee ? (
-            <p className="mt-2 text-zinc-600 dark:text-zinc-400">VERA takes no fee. 100% of your donation goes to the campaign, with no tip added.</p>
+            <p className="mt-2 text-sand ">VERA takes no fee. 100% of your donation goes to the campaign, with no tip added.</p>
           ) : null}
         </div>
 
         {hasFee ? (
           <fieldset>
-            <legend className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Platform fee (optional)</legend>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <legend className="text-sm font-medium text-ink ">Platform fee (optional)</legend>
+            <p className="text-sm text-sand ">
               A flat {formatMinorUnits(feeMinorUnits)}, paid on top, so your full donation still reaches the campaign.
             </p>
             <div className="mt-2 space-y-2 text-sm">
@@ -171,13 +171,13 @@ export function DonatePanel({
         ) : null}
 
         {error ? (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}</p>
+          <p role="alert" className="rounded-md bg-bad-wash px-3 py-2 text-sm text-bad ">{error}</p>
         ) : null}
 
         <button
           type="submit"
           disabled={!canSubmit}
-          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="rounded-md bg-copper px-4 py-2 font-medium text-on-copper hover:bg-copper-hover disabled:opacity-50 "
         >
           {busy ? "Starting..." : validAmount && minor ? `Donate ${formatMinorUnits(minor)}` : "Donate"}
         </button>

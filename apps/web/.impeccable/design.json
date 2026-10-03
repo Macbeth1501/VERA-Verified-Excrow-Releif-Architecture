@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T00:00:00.000Z",
+  "title": "Design System: VERA",
+  "extensions": {
+    "colorMeta": {
+      "ground": { "role": "neutral", "displayName": "Ground", "canonical": "#3a332f", "tonalRamp": ["#1f1a17", "#2f2926", "#3a332f", "#453d38", "#5a5049", "#7c6f65", "#a89b8d", "#d9cec0"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#f1e7da", "tonalRamp": ["#5a5049", "#7c6f65", "#a89b8d", "#c0b2a2", "#c9bcab", "#dccfc0", "#f1e7da", "#faf5ee"] },
+      "copper": { "role": "primary", "displayName": "Copper", "canonical": "#e9a46f", "tonalRamp": ["#3a2314", "#5c3620", "#8a5230", "#b8703f", "#d68d57", "#e9a46f", "#f1b283", "#f9d6b8"] },
+      "ok": { "role": "secondary", "displayName": "Moss", "canonical": "#7fcf9c", "tonalRamp": ["#1e2f25", "#34443a", "#3f6650", "#4f8a68", "#65ab82", "#7fcf9c", "#a5e0b9", "#d2f0dc"] },
+      "warn": { "role": "secondary", "displayName": "Brass", "canonical": "#e6c15c", "tonalRamp": ["#2e2610", "#4a4128", "#6e5f2a", "#9a8236", "#c29f45", "#e6c15c", "#efd587", "#f7e8b8"] },
+      "bad": { "role": "secondary", "displayName": "Rose", "canonical": "#f79aa1", "tonalRamp": ["#33191b", "#4e3335", "#7a464b", "#a85a61", "#d27680", "#f79aa1", "#f9b8bd", "#fcdcde"] }
+    },
+    "typographyMeta": {
+      "display-hero": { "displayName": "Display hero", "purpose": "The home statement only." },
+      "display-page": { "displayName": "Display page", "purpose": "The H1 of each public page." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings such as Where the money is." },
+      "figure": { "displayName": "Figure", "purpose": "The Still held in escrow amount." },
+      "hash": { "displayName": "Hash", "purpose": "Transaction hashes and addresses in monospace." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "rail-draw", "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The stage rail line draws in once on load; disabled under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid copper action, dark ink for 7.4:1 contrast.",
+      "html": "<button class=\"ds-btn\">Browse campaigns</button>",
+      "css": ".ds-btn { min-height: 44px; padding: 0 24px; background: #e9a46f; color: #2a221e; border: 0; border-radius: 6px; font: 500 16px 'Hanken Grotesk', system-ui, sans-serif; cursor: pointer; } .ds-btn:hover { background: #f1b283; } .ds-btn:focus-visible { outline: 2px solid #e9a46f; outline-offset: 2px; } .ds-btn:disabled { opacity: .6; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined copper action for lower-priority choices such as Check again.",
+      "html": "<button class=\"ds-btn2\">Check again</button>",
+      "css": ".ds-btn2 { min-height: 40px; padding: 0 16px; background: #2f2926; color: #e9a46f; border: 1px solid #e9a46f; border-radius: 6px; font: 500 14px 'Hanken Grotesk', system-ui, sans-serif; cursor: pointer; } .ds-btn2:hover { background: #453d38; } .ds-btn2:focus-visible { outline: 2px solid #e9a46f; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Sunken field with a strong rule border and a copper focus.",
+      "html": "<input class=\"ds-input\" type=\"email\" placeholder=\"you@example.com\" />",
+      "css": ".ds-input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 12px; background: #2f2926; color: #f1e7da; border: 1px solid #948577; border-radius: 6px; font: 16px 'Hanken Grotesk', system-ui, sans-serif; caret-color: #e9a46f; } .ds-input::placeholder { color: #c0b2a2; } .ds-input:focus { border-color: #e9a46f; outline: 2px solid #e9a46f; outline-offset: 0; }"
+    },
+    {
+      "name": "Verification Seal",
+      "kind": "chip",
+      "refersTo": "seal-verified",
+      "description": "Pill that states whether the page reconciles with the blockchain.",
+      "html": "<p class=\"ds-seal\">Verified against the blockchain</p>",
+      "css": ".ds-seal { display: inline-flex; margin: 0; padding: 6px 16px; background: #34443a; color: #7fcf9c; border: 1px solid rgba(127,207,156,.5); border-radius: 9999px; font: 500 14px 'Hanken Grotesk', system-ui, sans-serif; }"
+    },
+    {
+      "name": "Statement Row",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "A ruled row of the account statement: label and note left, tabular amount right.",
+      "html": "<div class=\"ds-row\"><div><div class=\"ds-l\">Released to the organizer</div><div class=\"ds-n\">Paid out through verified milestones</div></div><div class=\"ds-a\">₹250.00</div></div>",
+      "css": ".ds-row { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; padding: 14px 0; border-bottom: 1px solid #5a5049; color: #f1e7da; font-family: 'Hanken Grotesk', system-ui, sans-serif; } .ds-l { font-size: 16px; } .ds-n { margin-top: 2px; font-size: 14px; color: #c0b2a2; } .ds-a { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Stage Track",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "The four-stage rail for one milestone, here at Released.",
+      "html": "<div class=\"ds-track\"><span class=\"ds-line\"></span><span class=\"ds-node on\"></span><span class=\"ds-node on\"></span><span class=\"ds-node on\"></span><span class=\"ds-node\"></span></div><div class=\"ds-labels\"><span>Locked</span><span>Confirmed</span><b>Released</b><span>Paid out</span></div>",
+      "css": ".ds-track { position: relative; display: flex; justify-content: space-between; align-items: center; width: 320px; } .ds-line { position: absolute; left: 8px; right: 8px; top: 50%; height: 1px; background: #5a5049; } .ds-node { position: relative; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 1px solid #948577; background: #2f2926; } .ds-node.on { background: #e9a46f; border-color: #e9a46f; } .ds-labels { display: flex; justify-content: space-between; width: 320px; margin-top: 6px; font: 12px 'Hanken Grotesk', system-ui, sans-serif; color: #c0b2a2; } .ds-labels b { color: #f1e7da; font-weight: 500; }"
+    },
+    {
+      "name": "Top Navigation",
+      "kind": "nav",
+      "refersTo": "panel",
+      "description": "Sunken top bar with the wordmark, role links and the copper sign-in.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-mark\">VERA</span><a class=\"cur\" href=\"#\">Campaigns</a><a href=\"#\">Chain activity</a><span class=\"ds-sp\"></span><a class=\"ds-in\" href=\"#\">Sign in</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 24px; padding: 8px 24px; background: #2f2926; border-bottom: 1px solid #5a5049; font: 14px 'Hanken Grotesk', system-ui, sans-serif; } .ds-mark { font: 600 20px Besley, Georgia, serif; color: #f1e7da; letter-spacing: .03em; } .ds-nav a { color: #c9bcab; text-decoration: none; padding: 6px 2px; border-bottom: 2px solid transparent; } .ds-nav a.cur { color: #f1e7da; border-bottom-color: #e9a46f; } .ds-sp { flex: 1; } .ds-nav a.ds-in { background: #e9a46f; color: #2a221e; padding: 6px 16px; border-radius: 6px; font-weight: 500; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Kept Ledger",
+    "overview": "VERA reads like an account book that anyone may inspect. Money is shown as ruled rows, a statement of what came in, went out and is still held, and a single four-stage rail that follows every donation from escrow to beneficiary. The theme is one designed mid-tone dark: warm charcoal ground, cream ink and a single copper voice.",
+    "keyCharacteristics": [
+      "Warm charcoal ground with a raised panel and a sunken well; three surface heights, no shadows.",
+      "Copper is the single accent; green, brass and rose appear only as state.",
+      "Ruled rows and hairlines instead of cards; the four-stage rail is the recurring motif.",
+      "Serif for headings and money, grotesque for reading, mono for chain data; tabular numerals everywhere.",
+      "One shared 1152px grid; every page starts at the same left edge as the top bar.",
+      "Honest states: verified, could not compare, does not match; lagging or unreadable data is shown, never hidden."
+    ],
+    "rules": [
+      { "name": "The Copper Voice Rule", "body": "Copper is the only accent. It marks what you can act on or what moves money forward; it is never decoration or a status colour.", "section": "colors" },
+      { "name": "The Status-Only Rule", "body": "Moss, brass and rose mean state and nothing else.", "section": "colors" },
+      { "name": "The Measured Contrast Rule", "body": "Every text pair is at least 4.5:1 on every surface it appears on, checked with numbers, not by eye.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "Money and dates use tabular numerals so columns line up.", "section": "typography" },
+      { "name": "The Serif-For-Headings Rule", "body": "Besley is for headings and headline figures only; body and controls stay in the sans.", "section": "typography" },
+      { "name": "The Ledger-Line Rule", "body": "Separate content with a ruled line before reaching for a box or a fill.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do show money as a statement of ruled rows and let the rail carry the story.",
+      "Do keep copper for actions and movement, and status hues for state only.",
+      "Do verify contrast with numbers before adding a text colour to a new surface.",
+      "Do keep pending, lagging, unavailable and mismatched states distinct and honest.",
+      "Do align new pages to the shared 1152px container and its left edge."
+    ],
+    "donts": [
+      "Don't return to a near-black or bright-white theme, or add a light mode, without a new decision.",
+      "Don't use cards, nested boxes, hero-metric tiles, gradient text, glass, shadows or side-stripe borders.",
+      "Don't put a kicker or eyebrow above a heading.",
+      "Don't use Besley for body text or controls.",
+      "Don't invent claims or figures: totals come from the chain or are omitted."
+    ]
+  }
+}

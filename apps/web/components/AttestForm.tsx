@@ -17,14 +17,14 @@ export function AttestForm({ milestoneId }: { milestoneId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="mt-3 space-y-2">
-      <label className="block text-sm text-zinc-700 dark:text-zinc-300">
+    <div className="mt-4 space-y-3">
+      <label className="block text-sm text-sand">
         Evidence you reviewed (JPEG, PNG, WEBP, GIF or PDF, up to 8 MB)
         <input
           type="file"
           data-testid="evidence"
           accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-          className="mt-1 block w-full text-sm"
+          className="mt-1.5 block w-full"
           onChange={async (e) => {
             const file = e.target.files?.[0];
             setError(null);
@@ -38,7 +38,7 @@ export function AttestForm({ milestoneId }: { milestoneId: string }) {
         />
       </label>
       {hash && evidence ? (
-        <p className="break-all font-mono text-xs text-zinc-500">
+        <p className="break-all font-mono text-[13px] text-dim">
           Fingerprint of {evidence.name}: {hash}
         </p>
       ) : null}
@@ -70,12 +70,12 @@ export function AttestForm({ milestoneId }: { milestoneId: string }) {
             setBusy(false);
           }
         }}
-        className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-60"
+        className="rounded-md bg-copper px-4 py-2 text-sm font-semibold text-on-copper hover:bg-copper-hover disabled:opacity-60"
       >
         {busy ? "Confirming on the blockchain..." : "Confirm this milestone is complete"}
       </button>
       {error ? (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <p role="alert" className="text-sm text-bad">
           {error}
         </p>
       ) : null}

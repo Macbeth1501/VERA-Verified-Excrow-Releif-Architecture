@@ -48,6 +48,7 @@ Charity platforms are a black box: the money disappears at checkout. VERA's diff
 
 - The name is VERA (Verified Escrow & Relief Architecture).
 - **Binding visual constraint (stated by the user):** the design must not feel like a generic AI-made dark website. Any redesign must avoid that look; the direction itself is decided later, not here.
+- **Binding theme constraint (stated by the user):** the overall theme should not be too light. It should be a shade of dark, but not too dark: a mid-tone dark, neither bright white nor near-black.
 
 ## Evidence on Hand
 

@@ -44,6 +44,7 @@ export function navLinksFor(role: Role): NavLink[] {
   const links: NavLink[] = [
     { href: "/campaigns", label: "Campaigns" },
     { href: "/activity", label: "Chain activity" },
+    { href: "/how-it-works", label: "How it works" },
     { href: "/dashboard", label: "My dashboard" },
   ];
   switch (role) {

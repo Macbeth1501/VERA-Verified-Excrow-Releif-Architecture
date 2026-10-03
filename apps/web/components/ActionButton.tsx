@@ -26,8 +26,8 @@ export function ActionButton({
 
   const style =
     tone === "primary"
-      ? "bg-emerald-700 text-white hover:bg-emerald-800"
-      : "border border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900";
+      ? "bg-copper font-semibold text-on-copper hover:bg-copper-hover"
+      : "border border-rule-strong text-ink hover:bg-panel";
 
   return (
     <div className="mt-2">
@@ -54,12 +54,12 @@ export function ActionButton({
             setBusy(false);
           }
         }}
-        className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-60 ${style}`}
+        className={`rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 ${style}`}
       >
         {busy ? busyLabel : label}
       </button>
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm text-bad">
           {error}
         </p>
       ) : null}

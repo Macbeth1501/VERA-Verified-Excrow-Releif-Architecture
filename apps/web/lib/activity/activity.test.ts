@@ -100,6 +100,15 @@ describe("listActivity", () => {
     expect(Object.keys(counts).sort()).toEqual([...ACTIVITY_TYPES].sort());
   });
 
+  it("counts by type for the chosen campaign only, so the summary follows the campaign filter", async () => {
+    await seed();
+    const all = listActivity(db, known).countsByType;
+    const mine = listActivity(db, known, { campaignId }).countsByType;
+    expect(all.DonationReceived).toBe(2);
+    expect(mine.DonationReceived).toBe(1);
+    expect(listActivity(db, known, { campaignId: "no-such-campaign" }).countsByType.DonationReceived).toBe(0);
+  });
+
   it("is empty, not an error, before anything is indexed", () => {
     const page = listActivity(db, known);
     expect(page.total).toBe(0);

@@ -8,7 +8,7 @@ import type { DisbursementView } from "@/lib/disbursement/service";
 import { explorerTxUrl } from "@/lib/explorer";
 
 const INPUT =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
+  "mt-1 w-full rounded-md border border-rule-strong bg-well px-3 py-2 text-ink ";
 const short = (hash: string) => `${hash.slice(0, 10)}...${hash.slice(-6)}`;
 
 export interface PayoutBeneficiary {
@@ -46,7 +46,7 @@ export function PayoutForm({
 
   if (existing?.status === "CONFIRMED") {
     return (
-      <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" data-testid="payout-done">
+      <div className="mt-3 rounded-md bg-ok-wash px-3 py-2 text-sm text-ok " data-testid="payout-done">
         <p>
           Paid {formatMinorUnits(existing.amountMinorUnits)} to beneficiary <span className="font-mono">{short(existing.identityHash)}</span>.
         </p>
@@ -93,21 +93,21 @@ export function PayoutForm({
 
   const pending = existing?.status === "PENDING";
   return (
-    <form onSubmit={submit} className="mt-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-800" data-testid="payout-form">
-      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Record the payout to a beneficiary</p>
+    <form onSubmit={submit} className="mt-3 rounded-md border border-rule p-3 " data-testid="payout-form">
+      <p className="text-sm font-medium text-ink ">Record the payout to a beneficiary</p>
       {pending ? (
-        <p className="mt-1 text-sm text-amber-700 dark:text-amber-400" data-testid="payout-pending">
+        <p className="mt-1 text-sm text-warn " data-testid="payout-pending">
           A payout was sent and is waiting for confirmation. Check again in a moment; it will not be sent twice.
         </p>
       ) : null}
       {existing?.status === "FAILED" ? (
-        <p className="mt-1 text-sm text-red-700 dark:text-red-400">The last attempt failed: {existing.error}</p>
+        <p className="mt-1 text-sm text-bad ">The last attempt failed: {existing.error}</p>
       ) : null}
       {beneficiaries.length === 0 ? (
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Register a beneficiary for this campaign first.</p>
+        <p className="mt-1 text-sm text-sand ">Register a beneficiary for this campaign first.</p>
       ) : (
         <>
-          <label className="mt-2 block text-sm text-zinc-700 dark:text-zinc-300">
+          <label className="mt-2 block text-sm text-sand ">
             Beneficiary
             <select className={INPUT} value={beneficiaryId} onChange={(e) => setBeneficiaryId(e.target.value)} disabled={busy || pending}>
               {beneficiaries.map((b) => (
@@ -117,18 +117,18 @@ export function PayoutForm({
               ))}
             </select>
           </label>
-          <label className="mt-2 block text-sm text-zinc-700 dark:text-zinc-300">
+          <label className="mt-2 block text-sm text-sand ">
             Amount paid (₹)
             <input className={INPUT} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={busy || pending} />
           </label>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-[13px] text-dim">
             This moves the mINR from your wallet into the payout contract and records a simulated transfer reference.
             The contract refuses more than this campaign has released and not yet paid out.
           </p>
           <button
             type="submit"
             disabled={busy}
-            className="mt-2 rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-60"
+            className="mt-2 rounded-md bg-copper px-3 py-1.5 text-sm font-medium text-on-copper hover:bg-copper-hover disabled:opacity-60"
           >
             {busy ? "Recording on the blockchain, this can take a minute..." : pending ? "Check again" : "Record payout"}
           </button>
@@ -137,7 +137,7 @@ export function PayoutForm({
       {message ? (
         <p
           role={message.kind === "error" ? "alert" : "status"}
-          className={`mt-2 text-sm ${message.kind === "ok" ? "text-emerald-700 dark:text-emerald-400" : message.kind === "pending" ? "text-amber-700 dark:text-amber-400" : "text-red-700 dark:text-red-400"}`}
+          className={`mt-2 text-sm ${message.kind === "ok" ? "text-ok " : message.kind === "pending" ? "text-warn " : "text-bad "}`}
         >
           {message.text}
         </p>

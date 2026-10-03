@@ -19,6 +19,12 @@ export interface ReviewItem {
   chainError: string | null;
 }
 
+const STATUS_TONE: Record<ReviewItem["kybStatus"], string> = {
+  pending: "border-warn/50 bg-warn-wash text-warn",
+  verified: "border-ok/50 bg-ok-wash text-ok",
+  rejected: "border-bad/50 bg-bad-wash text-bad",
+};
+
 const CHAIN_LABEL: Record<ReviewItem["chainSync"], string> = {
   none: "Not yet recorded on-chain",
   not_configured: "Approved here only. On-chain sync is not configured on this server.",
@@ -53,26 +59,26 @@ export function AdminReviewList({ items }: { items: ReviewItem[] }) {
     }
   }
 
-  if (items.length === 0) return <p className="mt-6 text-zinc-600 dark:text-zinc-400">No applications yet.</p>;
+  if (items.length === 0) return <p className="mt-6 border-y border-rule py-5 text-sand">No applications yet.</p>;
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-4">
       {error ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p role="alert" className="rounded-md bg-bad-wash px-3 py-2 text-sm text-bad">
           {error}
         </p>
       ) : null}
       {items.map((o) => (
-        <section key={o.id} className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800" data-testid="application">
+        <section key={o.id} className="border-b border-rule py-6 first:border-t" data-testid="application">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-semibold text-zinc-900 dark:text-zinc-50">{o.legalName}</h2>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <h3 className="font-display text-xl text-ink">{o.legalName}</h3>
+              <p className="mt-0.5 text-sm text-sand">
                 Registration {o.registrationNumber}, {o.jurisdiction}
               </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Applicant: {o.email}</p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Document: {o.documentName} <span className="font-mono text-xs">({o.documentHash.slice(0, 12)}...)</span>
+              <p className="mt-0.5 text-sm text-sand">Applicant: {o.email}</p>
+              <p className="mt-0.5 text-sm text-sand">
+                Document: {o.documentName} <span className="font-mono text-[13px]">({o.documentHash.slice(0, 12)}...)</span>
                 {o.documentId ? (
                   <>
                     {" "}
@@ -80,17 +86,17 @@ export function AdminReviewList({ items }: { items: ReviewItem[] }) {
                       href={`/api/v1/documents/${o.documentId}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-medium text-zinc-900 underline dark:text-zinc-50"
+                      className="font-medium text-ink underline"
                     >
                       View document
                     </a>
                   </>
                 ) : (
-                  <span className="italic text-zinc-500"> (no file uploaded, hash only)</span>
+                  <span className="italic text-dim"> (no file uploaded, hash only)</span>
                 )}
               </p>
             </div>
-            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium capitalize dark:bg-zinc-800">
+            <span className={`shrink-0 rounded-full border px-3 py-1 text-[13px] font-medium capitalize ${STATUS_TONE[o.kybStatus]}`}>
               {o.kybStatus}
             </span>
           </div>
@@ -101,20 +107,20 @@ export function AdminReviewList({ items }: { items: ReviewItem[] }) {
                 placeholder="Reason (required to reject)"
                 value={reasons[o.id] ?? ""}
                 onChange={(e) => setReasons({ ...reasons, [o.id]: e.target.value })}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                className="w-full rounded-md border border-rule-strong bg-well px-3 py-2.5 text-ink"
               />
               <div className="flex gap-2">
                 <button
                   disabled={busyId === o.id}
                   onClick={() => call(o.id, "decision", { decision: "approve" })}
-                  className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-60"
+                  className="rounded-md bg-copper px-5 py-2 text-sm font-semibold text-on-copper hover:bg-copper-hover disabled:opacity-60"
                 >
                   {busyId === o.id ? "Working..." : "Approve"}
                 </button>
                 <button
                   disabled={busyId === o.id}
                   onClick={() => call(o.id, "decision", { decision: "reject", reason: reasons[o.id] ?? "" })}
-                  className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-800 dark:hover:bg-red-950"
+                  className="rounded-md border border-bad/50 px-4 py-2 text-sm font-medium text-bad hover:bg-bad-wash disabled:opacity-60"
                 >
                   Reject
                 </button>
@@ -123,23 +129,23 @@ export function AdminReviewList({ items }: { items: ReviewItem[] }) {
           ) : null}
 
           {o.kybStatus === "rejected" && o.rejectionReason ? (
-            <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">Reason: {o.rejectionReason}</p>
+            <p className="mt-3 text-sm text-sand">Reason: {o.rejectionReason}</p>
           ) : null}
 
           {o.kybStatus === "verified" ? (
-            <div className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
+            <div className="mt-3 text-sm text-sand">
               <p>{CHAIN_LABEL[o.chainSync]}</p>
               {o.chainSync === "synced" && o.chainTxHash?.startsWith("0x") ? (
                 <a className="underline" href={`https://amoy.polygonscan.com/tx/${o.chainTxHash}`} target="_blank" rel="noreferrer">
                   View transaction
                 </a>
               ) : null}
-              {o.chainSync === "failed" && o.chainError ? <p className="text-red-700">{o.chainError}</p> : null}
+              {o.chainSync === "failed" && o.chainError ? <p className="text-bad">{o.chainError}</p> : null}
               {o.chainSync !== "synced" ? (
                 <button
                   disabled={busyId === o.id}
                   onClick={() => call(o.id, "sync")}
-                  className="mt-2 rounded-md border border-zinc-300 px-3 py-1 text-sm font-medium hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-900"
+                  className="mt-2 rounded-md border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:bg-panel disabled:opacity-60"
                 >
                   Retry on-chain sync
                 </button>

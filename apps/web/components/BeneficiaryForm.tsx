@@ -6,16 +6,16 @@ import { hashIdentityFragment } from "@/lib/beneficiary/clientHasher";
 import { sha256HexOfFile } from "@/lib/hash";
 
 const INPUT =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
+  "mt-1.5 w-full rounded-md border border-rule-strong bg-well px-3 py-2.5 text-ink focus:border-copper";
 
 type Notice = { kind: "ok" | "duplicate" | "pending" | "error"; text: string };
 const short = (hash: string) => `${hash.slice(0, 10)}...${hash.slice(-6)}`;
 
 const TONE = {
-  ok: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  duplicate: "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
-  pending: "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
-  error: "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200",
+  ok: "bg-ok-wash text-ok ",
+  duplicate: "bg-warn-wash text-warn ",
+  pending: "bg-warn-wash text-warn ",
+  error: "bg-bad-wash text-bad ",
 } as const;
 
 /**
@@ -76,7 +76,7 @@ export function BeneficiaryForm({ campaignId, programSalt }: { campaignId: strin
   return (
     <form onSubmit={submit} className="mt-4 space-y-4" noValidate>
       <div>
-        <label htmlFor="fragment" className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+        <label htmlFor="fragment" className="text-sm font-medium text-ink">
           Identifying detail
         </label>
         <input
@@ -88,40 +88,40 @@ export function BeneficiaryForm({ campaignId, programSalt }: { campaignId: strin
           placeholder="ID number, or name + date of birth + village"
           className={INPUT}
         />
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-sm text-dim">
           This never leaves this device. It is scrambled here into a fingerprint, and only the fingerprint is sent, so the
           same person cannot be registered twice but nobody at VERA can see who they are.
         </p>
       </div>
 
       <div>
-        <label htmlFor="payout" className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+        <label htmlFor="payout" className="text-sm font-medium text-ink">
           How will they be paid?
         </label>
         <input id="payout" value={payoutMethod} onChange={(e) => setPayoutMethod(e.target.value)} maxLength={60} className={INPUT} />
       </div>
 
       <div>
-        <label htmlFor="photo" className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+        <label htmlFor="photo" className="text-sm font-medium text-ink">
           Photo (optional)
         </label>
         <input
           id="photo"
           type="file"
           accept="image/*"
-          className="mt-1 block w-full text-sm"
+          className="mt-1.5 block w-full"
           onChange={async (e) => {
             const file = e.target.files?.[0];
             setPhoto(file ? { name: file.name, hash: await sha256HexOfFile(file) } : null);
           }}
         />
-        <p className="mt-1 text-xs text-zinc-500">Only a fingerprint of the photo is kept; the photo itself is not uploaded.</p>
+        <p className="mt-1 text-sm text-dim">Only a fingerprint of the photo is kept; the photo itself is not uploaded.</p>
       </div>
 
       <button
         type="submit"
         disabled={busy || !fragment.trim()}
-        className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-60"
+        className="rounded-md bg-copper px-5 py-2.5 text-sm font-semibold text-on-copper hover:bg-copper-hover disabled:opacity-60"
       >
         {busy ? "Registering on the blockchain..." : "Register beneficiary"}
       </button>

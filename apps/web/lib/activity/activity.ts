@@ -180,16 +180,20 @@ export function listActivity(db: Db, known: KnownContracts, query: ActivityQuery
   for (const c of campaignRows) if (c.vault) byVault.set(c.vault.toLowerCase(), { id: c.id, title: c.title });
 
   const countsByType = Object.fromEntries(ACTIVITY_TYPES.map((t) => [t, 0])) as Record<EventName, number>;
-  for (const r of db.select({ name: chainEvents.eventName, n: count() }).from(chainEvents).groupBy(chainEvents.eventName).all()) countsByType[r.name] = r.n;
 
+  // The campaign narrows the counts (so the filter menu and summary describe what is being viewed);
+  // the event type does not, so the menu can still show how many of each type exist.
   const conditions: SQL[] = [];
-  if (query.type) conditions.push(eq(chainEvents.eventName, query.type));
+  let campaignScope: SQL | undefined;
   if (query.campaignId) {
     const vault = campaignRows.find((c) => c.id === query.campaignId)?.vault;
     // An unknown campaign, or one with no vault yet, matches nothing rather than everything.
     if (!vault) return { rows: [], total: 0, limit, offset, countsByType };
-    conditions.push(eq(chainEvents.vaultAddress, vault.toLowerCase()));
+    campaignScope = eq(chainEvents.vaultAddress, vault.toLowerCase());
+    conditions.push(campaignScope);
   }
+  for (const r of db.select({ name: chainEvents.eventName, n: count() }).from(chainEvents).where(campaignScope).groupBy(chainEvents.eventName).all()) countsByType[r.name] = r.n;
+  if (query.type) conditions.push(eq(chainEvents.eventName, query.type));
   const where = conditions.length ? and(...conditions) : undefined;
 
   const total = db.select({ n: count() }).from(chainEvents).where(where).get()?.n ?? 0;

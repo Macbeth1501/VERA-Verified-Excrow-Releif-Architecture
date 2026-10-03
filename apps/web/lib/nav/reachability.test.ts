@@ -27,9 +27,9 @@ function routeOf(file: string): string {
   return "/" + parts.join("/");
 }
 
-/** A link target as written in code, with template holes and the query string normalised. */
+/** A link target as written in code, with template holes and the query string and #anchor removed. */
 function normalise(target: string): string {
-  return target.replace(/\$\{[^}]*\}/g, "[x]").split("?")[0].replace(/(.)\/$/, "$1");
+  return target.replace(/\$\{[^}]*\}/g, "[x]").split("#")[0].split("?")[0].replace(/(.)\/$/, "$1");
 }
 
 const LINK = /(?:href\s*[=:]\s*\{?|push\(|redirect\()\s*[`"']([^`"']+)[`"']/g;

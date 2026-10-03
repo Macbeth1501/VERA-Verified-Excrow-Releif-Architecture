@@ -2,7 +2,7 @@ import type { Db } from "../db";
 import { getEnv } from "../env";
 import { freshness, type Freshness } from "../indexer/freshness";
 import { indexerStatus } from "../indexer/queries";
-import { syncIfStale, type IndexerRuntime } from "../indexer/runtime";
+import { syncWithinBudget, type IndexerRuntime } from "../indexer/runtime";
 import { listActivity, type ActivityPage, type ActivityQuery, type KnownContracts } from "./activity";
 
 export interface ActivityData extends ActivityPage {
@@ -38,7 +38,7 @@ export async function buildActivity(
   contracts: KnownContracts,
   query: ActivityQuery,
 ): Promise<ActivityData> {
-  if (runtime) await syncIfStale(db, runtime);
+  if (runtime) await syncWithinBudget(db, runtime);
   const status = await indexerStatus(db, runtime?.reader ?? null);
   return {
     ...listActivity(db, contracts, query),

@@ -1,7 +1,7 @@
 import type { Db } from "../db";
 import { freshness, type Freshness } from "../indexer/freshness";
 import { indexerStatus, reconcileVault, vaultLedger, vaultPayouts, vaultTotals, type LedgerEntry, type PayoutEntry } from "../indexer/queries";
-import { syncIfStale, type IndexerRuntime } from "../indexer/runtime";
+import { syncWithinBudget, type IndexerRuntime } from "../indexer/runtime";
 import { getPublicProfile } from "../organizers/service";
 import { getCampaign, type CampaignWithMilestones } from "./service";
 
@@ -57,8 +57,20 @@ export interface DashboardData {
      * payout contract is configured (payouts <= releases is still part of `status`).
      */
     payouts: "match" | "mismatch" | "not_checked";
+    /** Why a comparison could not be made, so the page can say so in plain words (only with status "unavailable"). */
+    reason?: UnavailableReason;
   };
   generatedAt: string;
+}
+
+/** Why the chain comparison failed: the node no longer keeps state that old, no node answered, or something else. */
+export type UnavailableReason = "state_pruned" | "unreachable" | "other";
+
+export function classifyReconcileError(err: unknown): UnavailableReason {
+  const text = (err instanceof Error ? `${err.message} ${(err as { details?: string }).details ?? ""}` : String(err)).toLowerCase();
+  if (/historical state|missing trie node|state .* is not available|pruned|header not found/.test(text)) return "state_pruned";
+  if (/timeout|timed out|fetch failed|econn|enotfound|network|http request failed|unreachable|aborted/.test(text)) return "unreachable";
+  return "other";
 }
 
 /** Progress toward the goal in basis points, using exact integer math. */
@@ -80,7 +92,7 @@ export async function buildDashboard(
   if (!campaign || campaign.status !== "LIVE" || !campaign.vaultContractAddress) return null;
   const vault = campaign.vaultContractAddress;
 
-  if (runtime) await syncIfStale(db, runtime);
+  if (runtime) await syncWithinBudget(db, runtime);
   const status = await indexerStatus(db, runtime?.reader ?? null);
   const totals = vaultTotals(db, vault);
   const donated = BigInt(totals.totalDonated);
@@ -97,8 +109,10 @@ export async function buildDashboard(
           payouts: !payoutsOk ? "mismatch" : row.payouts.match === null ? "not_checked" : "match",
         };
       }
-    } catch {
-      reconciliation = { status: "unavailable", checkedAtBlock: null, payouts: "not_checked" };
+    } catch (err) {
+      const reason = classifyReconcileError(err);
+      console.warn(`[reconcile] vault ${vault} could not be compared (${reason}): ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+      reconciliation = { status: "unavailable", checkedAtBlock: null, payouts: "not_checked", reason };
     }
   }
 

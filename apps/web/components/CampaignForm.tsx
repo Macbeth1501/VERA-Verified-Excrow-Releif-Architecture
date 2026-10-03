@@ -17,8 +17,8 @@ interface MilestoneDraft {
 const blankMilestone: MilestoneDraft = { description: "", targetPct: "", requiredAttestations: "2" };
 
 const inputClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
-const labelClass = "text-sm font-medium text-zinc-800 dark:text-zinc-200";
+  "mt-1.5 w-full rounded-md border border-rule-strong bg-well px-3 py-2.5 text-ink focus:border-copper";
+const labelClass = "text-sm font-medium text-ink";
 
 export function CampaignForm() {
   const router = useRouter();
@@ -104,13 +104,14 @@ export function CampaignForm() {
 
   const messages = (key: string) =>
     errors[key]?.map((m) => (
-      <p key={m} className="mt-1 text-sm text-red-600">
+      <p key={m} className="mt-1 text-sm text-bad">
         {m}
       </p>
     ));
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 space-y-6" noValidate>
+    <form onSubmit={onSubmit} className="mt-10 max-w-3xl space-y-8" noValidate>
+      <h2 className="border-b border-rule pb-3 text-2xl text-ink">The campaign</h2>
       <div>
         <label htmlFor="title" className={labelClass}>
           Campaign title
@@ -160,7 +161,7 @@ export function CampaignForm() {
           Admin cost cap (%)
         </label>
         <input id="adminCap" inputMode="numeric" value={adminCap} onChange={(e) => setAdminCap(e.target.value)} className={inputClass} />
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-dim">
           The most you may spend on running costs. {CATEGORY_LABEL[category]} campaigns allow at most {ceiling}%. This
           limit is enforced by the contract, not just by us.
         </p>
@@ -168,79 +169,84 @@ export function CampaignForm() {
       </div>
 
       <fieldset>
-        <legend className={labelClass}>Milestones</legend>
-        <p className="mt-1 text-sm text-zinc-500">
+        <legend className="w-full border-b border-rule pb-3 font-display text-2xl font-semibold text-ink">Milestones</legend>
+        <p className="mt-3 max-w-[62ch] text-sm text-sand">
           Money is released in stages. Each milestone needs independent confirmations before its share can be paid out,
           and the shares must add up to exactly 100%.
         </p>
 
-        <div className="mt-4 space-y-4">
+        <ol className="mt-2 divide-y divide-rule">
           {rows.map((row, index) => (
-            <div key={index} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Milestone {index + 1}</span>
-                {rows.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => setRows(rows.filter((_, i) => i !== index))}
-                    className="text-sm text-red-700 underline dark:text-red-400"
-                  >
-                    Remove
-                  </button>
-                ) : null}
-              </div>
-              <label htmlFor={`desc-${index}`} className="sr-only">
-                Milestone {index + 1} description
-              </label>
-              <input
-                id={`desc-${index}`}
-                placeholder="What will be delivered?"
-                value={row.description}
-                onChange={(e) => updateRow(index, { description: e.target.value })}
-                className={inputClass}
-              />
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label htmlFor={`pct-${index}`} className="text-sm text-zinc-600 dark:text-zinc-400">
-                    Share of the goal (%)
+            <li key={index} className="grid gap-x-6 gap-y-3 py-5 sm:grid-cols-[2.5rem_1fr]">
+              <span aria-hidden className="font-display text-2xl text-copper">
+                {index + 1}
+              </span>
+              <div>
+                <div className="flex items-center justify-between gap-4">
+                  <label htmlFor={`desc-${index}`} className="text-sm font-medium text-ink">
+                    Milestone {index + 1}
                   </label>
-                  <input
-                    id={`pct-${index}`}
-                    inputMode="numeric"
-                    value={row.targetPct}
-                    onChange={(e) => updateRow(index, { targetPct: e.target.value })}
-                    className={inputClass}
-                  />
+                  {rows.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setRows(rows.filter((_, i) => i !== index))}
+                      className="text-sm text-bad underline"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
                 </div>
-                <div>
-                  <label htmlFor={`att-${index}`} className="text-sm text-zinc-600 dark:text-zinc-400">
-                    Confirmations needed
-                  </label>
-                  <input
-                    id={`att-${index}`}
-                    inputMode="numeric"
-                    value={row.requiredAttestations}
-                    onChange={(e) => updateRow(index, { requiredAttestations: e.target.value })}
-                    className={inputClass}
-                  />
+                <input
+                  id={`desc-${index}`}
+                  placeholder="What will be delivered?"
+                  value={row.description}
+                  onChange={(e) => updateRow(index, { description: e.target.value })}
+                  className={inputClass}
+                />
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor={`pct-${index}`} className="text-sm text-sand">
+                      Share of the goal (%)
+                    </label>
+                    <input
+                      id={`pct-${index}`}
+                      inputMode="numeric"
+                      value={row.targetPct}
+                      onChange={(e) => updateRow(index, { targetPct: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`att-${index}`} className="text-sm text-sand">
+                      Confirmations needed
+                    </label>
+                    <input
+                      id={`att-${index}`}
+                      inputMode="numeric"
+                      value={row.requiredAttestations}
+                      onChange={(e) => updateRow(index, { requiredAttestations: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
 
-        <div className="mt-4 flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-rule pt-4">
           <button
             type="button"
             onClick={() => setRows([...rows, { ...blankMilestone }])}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            className="rounded-md border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:bg-panel"
           >
             Add milestone
           </button>
           <p
             data-testid="milestone-total"
-            className={`text-sm font-medium ${totalOk ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}
+            className={`num inline-flex items-center gap-2 text-sm font-medium ${totalOk ? "text-ok" : "text-warn"}`}
           >
+            <span aria-hidden className={`h-2 w-2 rounded-full ${totalOk ? "bg-ok" : "border border-warn"}`} />
             Total: {total}% {totalOk ? "(ready)" : "of 100%"}
           </p>
         </div>
@@ -248,20 +254,21 @@ export function CampaignForm() {
       </fieldset>
 
       {formError ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p role="alert" className="rounded-md bg-bad-wash px-3 py-2 text-sm text-bad">
           {formError}
         </p>
       ) : null}
 
-      {busy ? <p className="text-sm text-zinc-600 dark:text-zinc-400">{busy}</p> : null}
+      {busy ? <p className="text-sm text-sand">{busy}</p> : null}
 
       <button
         type="submit"
         disabled={busy !== null}
-        className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="rounded-md bg-copper px-6 py-3 font-semibold text-on-copper hover:bg-copper-hover disabled:opacity-60"
       >
         {busy ? "Working..." : "Create campaign"}
       </button>
+      <p className="-mt-4 text-sm text-dim">Creating the campaign also publishes its escrow account to the test network.</p>
     </form>
   );
 }

@@ -84,14 +84,20 @@ export function DonationProgress({
 
   if (donation.status === "CONFIRMED") {
     return (
-      <div role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-5 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-        <p className="text-lg font-semibold">Thank you. Your donation of {amount} is confirmed.</p>
-        <p className="mt-2 text-sm">
-          The blockchain has confirmed it, and all {amount} went to the campaign
-          {fee ? `, plus the ${fee} fee you chose to cover` : ", with no fee taken"}. It appears on the public ledger
-          within about 20 seconds.
+      <div role="status" className="rounded-lg border border-ok/40 bg-ok-wash p-6 text-ok">
+        <p className="inline-flex items-center gap-2 text-sm font-medium">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="m8.5 12.3 2.4 2.4 4.7-5" />
+          </svg>
+          Confirmed by the blockchain
         </p>
-        <p className="mt-3 flex flex-wrap gap-4 text-sm font-medium">
+        <p className="mt-2 font-display text-2xl font-semibold text-ink">Thank you. Your donation of {amount} is confirmed.</p>
+        <p className="mt-3 text-sm">
+          All {amount} went to the campaign{fee ? `, plus the ${fee} fee you chose to cover` : ", with no fee taken"}. It
+          appears on the public ledger within about 20 seconds.
+        </p>
+        <p className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium">
           {donation.txHash ? (
             <a className="underline" href={explorerTxUrl(donation.txHash)} target="_blank" rel="noreferrer">
               View your receipt on the explorer
@@ -109,13 +115,13 @@ export function DonationProgress({
 
   if (donation.status === "FAILED") {
     return (
-      <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-5 text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-        <p className="font-semibold">{STAGE_TEXT.failed}</p>
-        <p className="mt-1 text-sm">{donation.error ?? "Something went wrong."} Nothing was lost, and no donation was recorded as complete.</p>
+      <div role="alert" className="rounded-lg border border-bad/40 bg-bad-wash p-6 text-bad">
+        <p className="font-display text-xl font-semibold">{STAGE_TEXT.failed}</p>
+        <p className="mt-2 text-sm">{donation.error ?? "Something went wrong."} Nothing was lost, and no donation was recorded as complete.</p>
         <button
           type="button"
           onClick={retry}
-          className="mt-3 rounded-md border border-red-400 px-3 py-1.5 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900"
+          className="mt-4 rounded-md border border-bad/50 px-4 py-2 text-sm font-medium hover:bg-bad/10"
         >
           Try again
         </button>
@@ -124,9 +130,12 @@ export function DonationProgress({
   }
 
   return (
-    <div role="status" aria-live="polite" className="rounded-lg border border-amber-300 bg-amber-50 p-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-      <p className="font-semibold">Pending: your {amount} donation is not complete yet.</p>
-      <p className="mt-1 text-sm">
+    <div role="status" aria-live="polite" className="rounded-lg border border-warn/40 bg-warn-wash p-6 text-warn">
+      <p className="font-display text-xl font-semibold">Pending: your {amount} donation is not complete yet.</p>
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-warn/25" aria-hidden>
+        <div className="h-full rounded-full bg-warn" style={{ width: `${Math.round((donation.stepNumber / donation.totalSteps) * 100)}%` }} />
+      </div>
+      <p className="mt-3 text-sm">
         Step {donation.stepNumber} of {donation.totalSteps}: {STAGE_TEXT[donation.stage]}. This can take up to a minute. Please keep this page open.
       </p>
       {donation.txHash ? (

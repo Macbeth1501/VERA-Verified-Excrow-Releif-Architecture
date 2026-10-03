@@ -33,11 +33,11 @@ export function PublishCampaignButton({ campaignId, label }: { campaignId: strin
             setBusy(false);
           }
         }}
-        className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-900"
+        className="rounded-md border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:bg-panel disabled:opacity-60"
       >
         {busy ? "Publishing, this can take a minute..." : label}
       </button>
-      {error ? <p className="mt-2 text-sm text-red-700 dark:text-red-400">{error}</p> : null}
+      {error ? <p className="mt-2 text-sm text-bad">{error}</p> : null}
     </div>
   );
 }

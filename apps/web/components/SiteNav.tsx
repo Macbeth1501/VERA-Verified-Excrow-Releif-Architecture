@@ -76,39 +76,51 @@ export function SiteNav() {
   const change = baseline === undefined || current === undefined ? { kind: "same" as const } : identityChange(baseline, current);
   const shown = current ?? null;
 
+  const isActive = (href: string) =>
+    href === "/" || href === "/dashboard"
+      ? pathname === href
+      : pathname === href || pathname.startsWith(`${href}/`) || (href === "/campaigns" && pathname.startsWith("/organizers/"));
+  const linkClass = (href: string) => {
+    const active = isActive(href);
+    return `inline-flex min-h-8 items-center border-b-2 px-0.5 ${active ? "border-copper text-ink" : "border-transparent text-sand hover:text-ink"}`;
+  };
+
   return (
-    <header className="border-b border-zinc-200 dark:border-zinc-800" data-testid="site-nav">
-      <nav className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-6 py-3 text-sm">
-        <Link href="/" className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+    <header className="border-b border-rule bg-well" data-testid="site-nav">
+      <nav aria-label="Main" className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-1 px-6 py-2 text-sm">
+        <Link href="/" className="mr-2 font-display text-xl font-semibold tracking-wide text-ink hover:text-copper">
           VERA
         </Link>
         {shown ? (
           <>
             {navLinksFor(shown.role).map((l) => (
-              <Link key={l.href + l.label} href={l.href} className="text-zinc-700 hover:underline dark:text-zinc-300">
+              <Link key={l.href + l.label} href={l.href} className={linkClass(l.href)} aria-current={isActive(l.href) ? "page" : undefined}>
                 {l.label}
               </Link>
             ))}
-            <span className="ml-auto text-zinc-500" data-testid="nav-identity">
+            <span className="ml-auto text-dim" data-testid="nav-identity">
               {shown.email} ({roleLabel(shown.role)})
             </span>
             <LogoutButton />
           </>
         ) : (
           <>
-            <Link href="/campaigns" className="text-zinc-700 hover:underline dark:text-zinc-300">
+            <Link href="/campaigns" className={linkClass("/campaigns")} aria-current={isActive("/campaigns") ? "page" : undefined}>
               Campaigns
             </Link>
-            <Link href="/activity" className="text-zinc-700 hover:underline dark:text-zinc-300">
+            <Link href="/activity" className={linkClass("/activity")} aria-current={isActive("/activity") ? "page" : undefined}>
               Chain activity
             </Link>
+            <Link href="/how-it-works" className={linkClass("/how-it-works")} aria-current={isActive("/how-it-works") ? "page" : undefined}>
+              How it works
+            </Link>
             {current === null ? (
-              <span className="ml-auto flex gap-4">
-                <Link href="/login" className="font-medium text-zinc-900 underline dark:text-zinc-50">
-                  Sign in
-                </Link>
-                <Link href="/register" className="text-zinc-700 underline dark:text-zinc-300">
+              <span className="ml-auto flex items-center gap-5">
+                <Link href="/register" className="inline-flex min-h-8 items-center text-sand hover:text-ink">
                   Create account
+                </Link>
+                <Link href="/login" className="inline-flex min-h-8 items-center rounded-md bg-copper px-4 font-medium text-on-copper hover:bg-copper-hover">
+                  Sign in
                 </Link>
               </span>
             ) : null}
@@ -116,8 +128,8 @@ export function SiteNav() {
         )}
       </nav>
       {change.kind !== "same" ? (
-        <div role="alert" className="border-t border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200" data-testid="identity-warning">
-          <span className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-1">
+        <div role="alert" className="border-t border-warn/40 bg-warn-wash text-sm text-warn" data-testid="identity-warning">
+          <span className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-6 py-2.5">
             {change.kind === "signed-out" ? (
               <span>You were signed out in another window. This page may be out of date.</span>
             ) : (
@@ -126,7 +138,7 @@ export function SiteNav() {
                 sign-in, so this page may show the wrong account. To use two roles at once, open the second in a private window.
               </span>
             )}
-            <button type="button" onClick={() => window.location.reload()} className="font-medium underline">
+            <button type="button" onClick={() => window.location.reload()} className="inline-flex min-h-8 items-center font-medium underline">
               Refresh this page
             </button>
           </span>

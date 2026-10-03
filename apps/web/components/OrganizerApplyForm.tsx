@@ -55,17 +55,17 @@ export function OrganizerApplyForm() {
   }
 
   const input =
-    "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm focus:border-zinc-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
-  const label = "text-sm font-medium text-zinc-800 dark:text-zinc-200";
+    "mt-1 w-full rounded-md border border-rule-strong bg-well px-3 py-2.5 text-ink focus:border-copper";
+  const label = "text-sm font-medium text-ink";
   const errors = (key: string) =>
     fieldErrors[key]?.map((m) => (
-      <p key={m} className="mt-1 text-sm text-red-600">
+      <p key={m} className="mt-1 text-sm text-bad">
         {m}
       </p>
     ));
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
+    <form onSubmit={onSubmit} className="mt-6 max-w-xl space-y-5" noValidate>
       <div>
         <label htmlFor="legalName" className={label}>
           Legal name of your organization
@@ -97,7 +97,7 @@ export function OrganizerApplyForm() {
           Supporting document (registration certificate)
         </label>
         <input id="document" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" onChange={onFile} className={input} />
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-dim">
           {document
             ? `Selected: ${document.name}. It will be uploaded (JPEG, PNG, WEBP, GIF or PDF, up to 8 MB) so an admin can review it, along with its fingerprint.`
             : "Choose a JPEG, PNG, WEBP, GIF or PDF file, up to 8 MB. An admin will review it before approving your application."}
@@ -108,7 +108,7 @@ export function OrganizerApplyForm() {
       </div>
 
       {formError ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p role="alert" className="rounded-md bg-bad-wash px-3 py-2 text-sm text-bad">
           {formError}
         </p>
       ) : null}
@@ -116,7 +116,7 @@ export function OrganizerApplyForm() {
       <button
         type="submit"
         disabled={busy}
-        className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="rounded-md bg-copper px-6 py-3 font-semibold text-on-copper hover:bg-copper-hover disabled:opacity-60"
       >
         {busy ? "Submitting..." : "Submit for verification"}
       </button>

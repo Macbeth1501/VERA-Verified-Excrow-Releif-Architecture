@@ -45,37 +45,37 @@ export function RoleManager({ grants }: { grants: RoleGrantView[] }) {
 
   return (
     <section className="mt-12" aria-labelledby="roles-heading">
-      <h2 id="roles-heading" className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+      <h2 id="roles-heading" className="border-b border-rule pb-3 text-2xl text-ink">
         Attestors and council
       </h2>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+      <p className="mt-3 max-w-[62ch] text-sand">
         Attestors confirm milestones; the council approves large payouts. Each person needs an existing account. Their
         role is also registered on the milestone manager contract, which is what actually lets them act.
       </p>
 
       <form
-        className="mt-4 flex flex-wrap items-end gap-3"
+        className="mt-5 flex flex-wrap items-end gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           void call({ email, role, active: true });
         }}
       >
-        <label className="text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="text-sm text-sand">
           Account email
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-64 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="mt-1.5 block w-64 rounded-md border border-rule-strong bg-well px-3 py-2.5 text-ink"
           />
         </label>
-        <label className="text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="text-sm text-sand">
           Role
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as "attestor" | "council")}
-            className="mt-1 block rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className="mt-1.5 block rounded-md border border-rule-strong bg-well px-3 py-2.5 text-ink"
           >
             <option value="attestor">Attestor</option>
             <option value="council">Council member</option>
@@ -84,30 +84,30 @@ export function RoleManager({ grants }: { grants: RoleGrantView[] }) {
         <button
           type="submit"
           disabled={busy}
-          className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-60"
+          className="rounded-md bg-copper px-5 py-2.5 text-sm font-semibold text-on-copper hover:bg-copper-hover disabled:opacity-60"
         >
           {busy ? "Working..." : "Grant role"}
         </button>
       </form>
       {error ? (
-        <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p role="alert" className="mt-3 rounded-md bg-bad-wash px-3 py-2 text-sm text-bad">
           {error}
         </p>
       ) : null}
 
       {grants.length === 0 ? (
-        <p className="mt-6 text-zinc-600 dark:text-zinc-400">Nobody holds these roles yet.</p>
+        <p className="mt-6 border-y border-rule py-5 text-sand">Nobody holds these roles yet.</p>
       ) : (
-        <ul className="mt-6 space-y-3">
+        <ul className="mt-4 divide-y divide-rule border-y border-rule">
           {grants.map((g) => (
-            <li key={g.id} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800" data-testid="role-grant">
+            <li key={g.id} className="py-4" data-testid="role-grant">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-50">
-                    {g.email} <span className="text-sm font-normal text-zinc-500">· {ROLE_LABEL[g.role]}</span>
+                  <p className="font-medium text-ink">
+                    {g.email} <span className="text-sm font-normal text-dim">· {ROLE_LABEL[g.role]}</span>
                   </p>
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{SYNC_LABEL[g.chainSync]}</p>
-                  {g.chainError ? <p className="text-sm text-red-700 dark:text-red-400">{g.chainError}</p> : null}
+                  <p className="mt-1 text-sm text-sand">{SYNC_LABEL[g.chainSync]}</p>
+                  {g.chainError ? <p className="text-sm text-bad">{g.chainError}</p> : null}
                 </div>
                 <div className="flex gap-2">
                   {g.chainSync !== "synced" ? (
@@ -115,7 +115,7 @@ export function RoleManager({ grants }: { grants: RoleGrantView[] }) {
                       type="button"
                       disabled={busy}
                       onClick={() => call({ email: g.email, role: g.role, active: true })}
-                      className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-900"
+                      className="rounded-md border border-rule-strong px-4 py-2 text-sm font-medium text-ink hover:bg-panel disabled:opacity-60"
                     >
                       Retry sync
                     </button>
@@ -124,7 +124,7 @@ export function RoleManager({ grants }: { grants: RoleGrantView[] }) {
                     type="button"
                     disabled={busy}
                     onClick={() => call({ email: g.email, role: g.role, active: false })}
-                    className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-800 dark:hover:bg-red-950"
+                    className="rounded-md border border-bad/50 px-4 py-2 text-sm font-medium text-bad hover:bg-bad-wash disabled:opacity-60"
                   >
                     Remove
                   </button>

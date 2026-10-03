@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DonationProgress } from "@/components/DonationProgress";
+import { PageHead } from "@/components/PageHead";
 import { requirePageUser } from "@/lib/campaigns/page-guard";
 import { getCampaign } from "@/lib/campaigns/service";
 import { DonationNotFoundError, getDonation } from "@/lib/donations/service";
@@ -22,13 +22,13 @@ export default async function DonationPage({ params }: { params: Promise<{ id: s
   const campaign = getCampaign(db, donation.campaignId);
 
   return (
-    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-16">
-      <Link href="/account" className="text-sm text-zinc-600 underline dark:text-zinc-400">
-        Back to your account
-      </Link>
-      <h1 className="mt-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Your donation</h1>
-      {campaign ? <p className="mt-1 text-zinc-600 dark:text-zinc-400">To {campaign.title}</p> : null}
-      <div className="mt-6">
+    <main className="w-full max-w-4xl flex-1 py-12 lg:py-16">
+      <PageHead
+        back={{ href: "/dashboard/donor", label: "Your account" }}
+        title="Your donation"
+        lead={campaign ? `To ${campaign.title}` : undefined}
+      />
+      <div className="mt-10 max-w-2xl">
         <DonationProgress initial={donation} campaignHref={`/campaigns/${donation.campaignId}`} />
       </div>
     </main>

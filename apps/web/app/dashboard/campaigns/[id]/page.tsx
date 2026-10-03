@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionButton } from "@/components/ActionButton";
 import { MilestoneCard } from "@/components/MilestoneCard";
+import { PageHead } from "@/components/PageHead";
 import { PayoutForm } from "@/components/PayoutForm";
 import { PublishCampaignButton } from "@/components/PublishCampaignButton";
 import { CATEGORY_LABEL } from "@/lib/campaigns/ceilings";
@@ -17,6 +18,8 @@ import { vaultLedger } from "@/lib/indexer/queries";
 import { asc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+
+const ROW = "flex items-center justify-between gap-3 py-2.5 font-medium text-copper hover:text-copper-hover";
 
 const CHAIN_COPY = {
   pending: "Not published yet.",
@@ -56,117 +59,143 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   );
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
-      <Link href="/dashboard/campaigns" className="text-sm text-zinc-600 underline dark:text-zinc-400">
-        Back to your campaigns
-      </Link>
-      <h1 className="mt-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{campaign.title}</h1>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        {CATEGORY_LABEL[campaign.category]} · Goal {formatMinorUnits(campaign.fundingGoalMinorUnits)} · Admin cost cap{" "}
-        {campaign.adminExpenseCapPct}%
+    <main className="w-full flex-1 py-12 lg:py-16">
+      <PageHead
+        back={{ href: "/dashboard/campaigns", label: "Your campaigns" }}
+        title={campaign.title}
+        lead={campaign.summary}
+      />
+      <p className="num mt-4 text-sm text-sand">
+        {CATEGORY_LABEL[campaign.category] ?? campaign.category} · goal {formatMinorUnits(campaign.fundingGoalMinorUnits)} ·
+        admin cost cap {campaign.adminExpenseCapPct}%
       </p>
-      <p className="mt-4 text-zinc-700 dark:text-zinc-300">{campaign.summary}</p>
 
-      <section className="mt-8 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-        <h2 className="text-sm font-medium text-zinc-500">Escrow account</h2>
-        <p
-          className={`mt-1 font-medium ${live ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}
-          data-testid="chain-status"
-        >
-          {CHAIN_COPY[campaign.chainStatus]}
-        </p>
-        {campaign.chainError ? <p className="mt-1 text-sm text-red-700 dark:text-red-400">{campaign.chainError}</p> : null}
-        {campaign.vaultContractAddress ? (
-          <p className="mt-2 break-all font-mono text-xs text-zinc-600 dark:text-zinc-400">
-            {campaign.vaultContractAddress}
-          </p>
-        ) : null}
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {campaign.chainTxHash?.startsWith("0x") ? (
-            <a
-              className="underline"
-              href={`https://amoy.polygonscan.com/address/${campaign.vaultContractAddress}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Inspect it on the public block explorer
-            </a>
-          ) : null}
-          {live ? (
-            <Link href={`/campaigns/${campaign.id}`} className="font-medium underline">
-              View the public page
-            </Link>
-          ) : null}
-          {live ? (
-            <Link href={`/activity?campaign=${campaign.id}`} className="font-medium underline">
-              See on-chain activity
-            </Link>
-          ) : null}
-          {live ? (
-            <Link href={`/dashboard/campaigns/${campaign.id}/beneficiaries`} className="font-medium underline">
-              Manage beneficiaries
-            </Link>
-          ) : null}
-        </div>
-        {!live ? <PublishCampaignButton campaignId={campaign.id} label="Publish to the blockchain" /> : null}
-      </section>
-
-      <section className="mt-8">
-        <h2 className="font-medium text-zinc-900 dark:text-zinc-50">Milestones</h2>
-        {live && unregistered.length > 0 ? (
-          <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200" data-testid="unregistered">
-            <p>
-              {unregistered.length} of {campaign.milestones.length} milestones are not registered with the milestone manager
-              yet, so attestors cannot confirm them and no money can be released.
-            </p>
-            {unregistered[0].chainError ? <p className="mt-1">{unregistered[0].chainError}</p> : null}
-            {chain.configured() ? (
-              <ActionButton url={`/api/v1/campaigns/${campaign.id}/milestones/define`} label="Register milestones" busyLabel="Registering, this can take a minute..." />
-            ) : (
-              <p className="mt-1">Milestone registration is switched off on this server.</p>
-            )}
-          </div>
-        ) : null}
-        {showViews ? (
-          <ol className="mt-3 space-y-3">
-            {views.map((v) => (
-              <MilestoneCard
-                key={v.id}
-                view={v}
-                mode="release"
-                releasedSlot={
-                  payoutsOn ? (
-                    <PayoutForm
-                      milestoneId={v.id}
-                      beneficiaries={payable}
-                      existing={getDisbursement(db, v.id)}
-                      suggestedMinorUnits={releasedAmounts.get(v.index) ?? null}
-                    />
-                  ) : null
-                }
-              />
-            ))}
-          </ol>
-        ) : null}
-        {!showViews ? (
-        <ol className="mt-3 space-y-3">
-          {campaign.milestones.map((m) => (
-            <li key={m.id} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-              <div className="flex items-start justify-between gap-4">
-                <p className="text-zinc-800 dark:text-zinc-200">{m.description}</p>
-                <span className="shrink-0 text-sm font-medium text-zinc-600 dark:text-zinc-400">{m.targetPct}%</span>
-              </div>
-              <p className="mt-1 text-sm text-zinc-500">
-                {formatMinorUnits(
-                  ((BigInt(campaign.fundingGoalMinorUnits) * BigInt(m.targetPct)) / 100n).toString(),
-                )}{" "}
-                · needs {m.requiredAttestations} independent confirmations · {m.status.toLowerCase()}
+      <div className="mt-10 grid gap-x-14 gap-y-12 lg:grid-cols-[minmax(0,1fr)_21rem]">
+        <section aria-labelledby="milestones-heading">
+          <h2 id="milestones-heading" className="border-b border-rule pb-3 text-2xl text-ink">
+            Milestones
+          </h2>
+          {live && unregistered.length > 0 ? (
+            <div className="mt-4 rounded-md bg-warn-wash px-4 py-3 text-sm text-warn" data-testid="unregistered">
+              <p>
+                {unregistered.length} of {campaign.milestones.length} milestones are not registered with the milestone
+                manager yet, so attestors cannot confirm them and no money can be released.
               </p>
-            </li>
-          ))}
-        </ol>
-        ) : null}
-      </section>
+              {unregistered[0].chainError ? <p className="mt-1">{unregistered[0].chainError}</p> : null}
+              {chain.configured() ? (
+                <ActionButton
+                  url={`/api/v1/campaigns/${campaign.id}/milestones/define`}
+                  label="Register milestones"
+                  busyLabel="Registering, this can take a minute..."
+                />
+              ) : (
+                <p className="mt-1">Milestone registration is switched off on this server.</p>
+              )}
+            </div>
+          ) : null}
+          {showViews ? (
+            <ol className="divide-y divide-rule">
+              {views.map((v) => (
+                <MilestoneCard
+                  key={v.id}
+                  view={v}
+                  mode="release"
+                  hideCampaign
+                  releasedSlot={
+                    payoutsOn ? (
+                      <PayoutForm
+                        milestoneId={v.id}
+                        beneficiaries={payable}
+                        existing={getDisbursement(db, v.id)}
+                        suggestedMinorUnits={releasedAmounts.get(v.index) ?? null}
+                      />
+                    ) : null
+                  }
+                />
+              ))}
+            </ol>
+          ) : (
+            <ol className="divide-y divide-rule">
+              {campaign.milestones.map((m, i) => (
+                <li key={m.id} className="grid gap-x-6 py-5 sm:grid-cols-[2.5rem_1fr_auto]">
+                  <span aria-hidden className="font-display text-2xl text-copper">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <p className="text-lg text-ink">{m.description}</p>
+                    <p className="mt-1 text-sm text-dim">
+                      Needs {m.requiredAttestations} independent confirmations · {m.status.toLowerCase()}
+                    </p>
+                  </div>
+                  <p className="num mt-2 text-sm text-sand sm:mt-0 sm:text-right">
+                    <span className="block font-display text-xl font-semibold text-ink">
+                      {formatMinorUnits(((BigInt(campaign.fundingGoalMinorUnits) * BigInt(m.targetPct)) / 100n).toString())}
+                    </span>
+                    {m.targetPct}% of the goal
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        <aside aria-labelledby="escrow-heading" className="self-start rounded-lg border border-rule bg-panel p-5">
+          <h2 id="escrow-heading" className="text-xl text-ink">
+            Escrow account
+          </h2>
+          <p
+            className={`mt-3 flex items-start gap-2 font-medium ${live ? "text-ok" : "text-warn"}`}
+            data-testid="chain-status"
+          >
+            <span aria-hidden className={`mt-2 h-2 w-2 shrink-0 rounded-full ${live ? "bg-ok" : "border border-warn"}`} />
+            {CHAIN_COPY[campaign.chainStatus]}
+          </p>
+          {campaign.chainError ? <p className="mt-2 text-sm text-bad">{campaign.chainError}</p> : null}
+          {campaign.vaultContractAddress ? (
+            <p className="mt-3 break-all rounded-md bg-well px-3 py-2 font-mono text-[13px] text-sand">
+              {campaign.vaultContractAddress}
+            </p>
+          ) : null}
+          {live || campaign.chainTxHash?.startsWith("0x") ? (
+            <ul className="mt-4 divide-y divide-rule border-y border-rule text-sm">
+              {live ? (
+                <li>
+                  <Link href={`/dashboard/campaigns/${campaign.id}/beneficiaries`} className={ROW}>
+                    Manage beneficiaries <span aria-hidden>&rarr;</span>
+                  </Link>
+                </li>
+              ) : null}
+              {live ? (
+                <li>
+                  <Link href={`/campaigns/${campaign.id}`} className={ROW}>
+                    View the public page <span aria-hidden>&rarr;</span>
+                  </Link>
+                </li>
+              ) : null}
+              {live ? (
+                <li>
+                  <Link href={`/activity?campaign=${campaign.id}`} className={ROW}>
+                    See on-chain activity <span aria-hidden>&rarr;</span>
+                  </Link>
+                </li>
+              ) : null}
+              {campaign.chainTxHash?.startsWith("0x") ? (
+                <li>
+                  <a
+                    className={ROW}
+                    href={`https://amoy.polygonscan.com/address/${campaign.vaultContractAddress}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Inspect it on the block explorer <span aria-hidden>↗</span>
+                  </a>
+                </li>
+              ) : null}
+            </ul>
+          ) : null}
+          {!live ? <PublishCampaignButton campaignId={campaign.id} label="Publish to the blockchain" /> : null}
+        </aside>
+      </div>
     </main>
   );
 }

@@ -13,7 +13,7 @@ export function LogoutButton() {
         router.push("/");
         router.refresh();
       }}
-      className="text-sm font-medium text-zinc-600 underline hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+      className="inline-flex min-h-8 items-center text-sm font-medium text-sand underline hover:text-ink"
     >
       Sign out
     </button>

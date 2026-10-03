@@ -69,3 +69,26 @@ export async function syncIfStale(
   });
   return s.inflight;
 }
+
+/** How long a page waits for the indexer before it shows what is already indexed. */
+export const PAGE_SYNC_BUDGET_MS = 8_000;
+
+/**
+ * `syncIfStale` for page renders: waits at most `budgetMs`, then returns so the page can show the
+ * events already indexed (the freshness banner reports the lag honestly). The pass itself is not
+ * cancelled; it keeps running in the background and the next request benefits. Without this, the
+ * first visit after the app has been off for a while would hang until every missed block was read.
+ * A failed pass is swallowed here for the same reason the pages already ignore it: stale data is
+ * shown, never an error page.
+ */
+export async function syncWithinBudget(db: Db, runtime: IndexerRuntime, budgetMs = PAGE_SYNC_BUDGET_MS): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const wait = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, budgetMs);
+  });
+  try {
+    await Promise.race([syncIfStale(db, runtime).then(() => undefined, () => undefined), wait]);
+  } finally {
+    clearTimeout(timer);
+  }
+}

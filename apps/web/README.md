@@ -11,7 +11,7 @@ For what is built, what is next, and how everything fits together, read [`docs/P
 - **Attestors and the council:** an admin makes accounts attestors or council members. Attestors confirm that a milestone is done by choosing the evidence, hashed in the browser (the hash is what goes on-chain) and uploaded, so an admin/attestor/council viewer can later open exactly what was reviewed. Council members approve large payouts. The organizer, a council member or an admin then triggers the release. Everything is sent from the person's own wallet and counted by the contract.
 - **Organizers (KYB):** the supporting document is likewise hashed and uploaded; an admin can open it from the admin console before approving.
 - **Beneficiaries and payouts:** the organizer registers each beneficiary as a salted fingerprint (their real identity never reaches the server), and, once a milestone is released, records a payout to one of them — publicly visible on the campaign page.
-- **Everyone (no login):** browse campaigns and open a public audit page showing the money held in escrow, every donation, each milestone's confirmations, approvals, payouts to beneficiaries, and a check that the totals match the blockchain, with CSV/JSON download.
+- **Everyone (no login):** browse campaigns and open a public audit page showing the money held in escrow, every donation, each milestone's confirmations, approvals, payouts to beneficiaries, and a check that the totals match the blockchain, with CSV/JSON download. A public **Chain activity** timeline lists every on-chain event with explorer links, and a **How VERA works** page explains the flow, who does what and the words used.
 
 ## Run it
 
@@ -65,11 +65,16 @@ pnpm db:generate # create a SQL migration after editing lib/db/schema.ts
 
 ## Layout
 
+- `/how-it-works` is the public plain-words explanation and glossary (linked from the top bar and the footer)
 - `/activity` is the public Chain activity timeline (all indexed on-chain events, filterable, with explorer links); API `GET /api/v1/activity`
 - `app/` pages and `app/api/v1/` route handlers (`/dashboard` sends each role to its own workspace; `components/SiteNav.tsx` is the role-aware navigation and warns when another window of the same browser signs in as someone else)
-- `components/` client components (forms, the live dashboard, donation progress)
+- `components/` client components (forms, the live dashboard, donation progress) and shared layout pieces (`PageHead`, `StageRail`)
 - `lib/` the logic, grouped by area: `auth`, `organizers`, `campaigns`, `indexer`, `donations`, `escrow` (attestation, council, release), `beneficiary`, `disbursement`, `files` (uploaded KYB/evidence documents), `chain` (everything that touches the blockchain), `db`, `api`
 - `drizzle/` forward-only SQL migrations
+
+### Design
+
+The UI is one designed mid-tone dark theme ("The Kept Ledger": warm charcoal and copper, Besley / Hanken Grotesk / Geist Mono). Read [`PRODUCT.md`](PRODUCT.md) (users, principles, constraints) and [`DESIGN.md`](DESIGN.md) (tokens, components, do's and don'ts) before changing any UI; tokens live in `app/globals.css`.
 
 ### Spending testnet POL
 

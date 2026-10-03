@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminReviewList } from "@/components/AdminReviewList";
+import { PageHead } from "@/components/PageHead";
 import { RoleManager } from "@/components/RoleManager";
 import { findUserById } from "@/lib/auth/users";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
@@ -18,22 +18,29 @@ export default async function AdminPage() {
   const user = findUserById(db, session.userId);
   if (user === null) redirect("/login");
   // The API enforces this too; redirecting here just avoids showing a dead page.
-  if (user.role !== "admin") redirect("/account");
+  if (user.role !== "admin") redirect("/dashboard");
 
-  const items = listProfiles(db);
+  // Waiting applications first: they are the admin's work.
+  const rank = { pending: 0, rejected: 1, verified: 2 } as const;
+  const items = listProfiles(db).sort((a, b) => rank[a.kybStatus] - rank[b.kybStatus]);
   const pending = items.filter((i) => i.kybStatus === "pending").length;
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-16">
-      <Link href="/account" className="text-sm text-zinc-600 underline dark:text-zinc-400">
-        Back to your account
-      </Link>
-      <h1 className="mt-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Organizer applications</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-        {pending} waiting for review. Approving an organizer also records them as verified on the CampaignFactory
-        contract, when on-chain sync is configured.
-      </p>
-      <AdminReviewList items={items} />
+    <main className="w-full max-w-4xl flex-1 py-12 lg:py-16">
+      <PageHead
+        title="Admin console"
+        lead="Review organizer applications and appoint the attestors and council members who keep releases honest."
+      />
+      <section className="mt-12" aria-labelledby="applications-heading">
+        <h2 id="applications-heading" className="border-b border-rule pb-3 text-2xl text-ink">
+          Organizer applications
+        </h2>
+        <p className="mt-3 max-w-[62ch] text-sand">
+          {pending} waiting for review. Approving an organizer also records them as verified on the CampaignFactory
+          contract, when on-chain sync is configured.
+        </p>
+        <AdminReviewList items={items} />
+      </section>
       <RoleManager grants={listRoleGrants(db)} />
     </main>
   );

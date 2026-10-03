@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogoutButton } from "@/components/LogoutButton";
+import { PageHead } from "@/components/PageHead";
 import { findUserById } from "@/lib/auth/users";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
 import { formatRupees, getMinrBalance } from "@/lib/chain/balance";
@@ -21,6 +21,12 @@ async function loadBalance(address: string): Promise<string | null> {
   }
 }
 
+const DONATION_STATE = {
+  CONFIRMED: { label: "Confirmed", tone: "text-ok", dot: "bg-ok" },
+  FAILED: { label: "Failed, retry", tone: "text-bad", dot: "bg-bad" },
+  PENDING: { label: "Pending, view", tone: "text-warn", dot: "border border-warn" },
+} as const;
+
 export default async function AccountPage() {
   const session = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (session === null) redirect("/login");
@@ -31,81 +37,82 @@ export default async function AccountPage() {
   const db = getDb();
   const myDonations = listDonations(db, user.id).slice(0, 10);
 
-  return (
-    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-16">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Your account</h1>
-        <LogoutButton />
-      </div>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">Signed in as {user.email}</p>
+  const workspace =
+    user.role === "attestor"
+      ? { href: "/dashboard/attestor", label: "Open the attestor console" }
+      : user.role === "council"
+        ? { href: "/dashboard/council", label: "Open the council console" }
+        : user.role === "admin"
+          ? { href: "/dashboard/admin", label: "Open the admin console" }
+          : {
+              href: "/dashboard/organizer",
+              label: user.role === "organizer" ? "Your organizer status" : "Want to run a campaign? Become an organizer",
+            };
 
-      <section className="mt-8 rounded-lg border border-zinc-200 p-6 dark:border-zinc-800">
-        <h2 className="text-sm font-medium text-zinc-500">Your balance</h2>
+  return (
+    <main className="w-full max-w-4xl flex-1 py-12 lg:py-16">
+      <PageHead title="Your account" lead={`Signed in as ${user.email}`} />
+
+      <section aria-labelledby="balance-heading" className="mt-10 border-y border-rule py-6">
+        <h2 id="balance-heading" className="font-sans text-sm font-medium text-dim">
+          Your balance
+        </h2>
         {balance !== null ? (
-          <p className="mt-1 text-4xl font-semibold text-zinc-900 dark:text-zinc-50" data-testid="balance">
+          <p className="num mt-1 font-display text-5xl font-semibold text-ink" data-testid="balance">
             {balance}
           </p>
         ) : (
-          <p className="mt-1 text-lg text-amber-700 dark:text-amber-400">
-            We could not load your balance right now. Please refresh in a moment.
-          </p>
+          <p className="mt-1 text-lg text-warn">We could not load your balance right now. Please refresh in a moment.</p>
         )}
-        <p className="mt-3 text-sm text-zinc-500">
-          This is practice money on a test network, so nothing here has real value. You will be able to add funds and
-          donate to campaigns soon.
+        <p className="mt-3 max-w-[62ch] text-sm text-dim">
+          This is practice money on a test network, so nothing here has real value. You can add funds and donate to a
+          campaign from its public page.
         </p>
       </section>
 
       {myDonations.length > 0 ? (
-        <section className="mt-8" aria-labelledby="donations-heading">
-          <h2 id="donations-heading" className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Your donations</h2>
-          <ul className="mt-3 space-y-2">
-            {myDonations.map((d) => (
-              <li key={d.id} className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-                <span className="text-zinc-800 dark:text-zinc-200">
-                  {formatMinorUnits(d.amountMinorUnits)} to{" "}
-                  <Link href={`/campaigns/${d.campaignId}`} className="underline">
-                    {getCampaign(db, d.campaignId)?.title ?? "a campaign"}
+        <section className="mt-12" aria-labelledby="donations-heading">
+          <h2 id="donations-heading" className="border-b border-rule pb-3 text-2xl text-ink">
+            Your donations
+          </h2>
+          <ul className="divide-y divide-rule">
+            {myDonations.map((d) => {
+              const state = DONATION_STATE[d.status];
+              return (
+                <li key={d.id} className="grid gap-x-8 gap-y-1 py-4 sm:grid-cols-[1fr_auto] sm:items-baseline">
+                  <span className="min-w-0 text-ink">
+                    <span className="num font-display text-xl font-semibold">{formatMinorUnits(d.amountMinorUnits)}</span>{" "}
+                    <span className="text-sand">to</span>{" "}
+                    <Link href={`/campaigns/${d.campaignId}`} className="underline">
+                      {getCampaign(db, d.campaignId)?.title ?? "a campaign"}
+                    </Link>
+                  </span>
+                  <Link href={`/donations/${d.id}`} className={`inline-flex min-h-8 items-center gap-2 text-sm font-medium ${state.tone} hover:underline`}>
+                    <span aria-hidden className={`h-2 w-2 rounded-full ${state.dot}`} />
+                    {state.label}
                   </Link>
-                </span>
-                <Link href={`/donations/${d.id}`} className="shrink-0 font-medium underline">
-                  {d.status === "CONFIRMED" ? "Confirmed" : d.status === "FAILED" ? "Failed, retry" : "Pending, view"}
-                </Link>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}
 
-      <section className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-        {user.role === "attestor" ? (
-          <Link href="/dashboard/attestor" className="font-medium text-zinc-900 underline dark:text-zinc-50">
-            Open the attestor console
-          </Link>
-        ) : user.role === "council" ? (
-          <Link href="/dashboard/council" className="font-medium text-zinc-900 underline dark:text-zinc-50">
-            Open the council console
-          </Link>
-        ) : user.role === "admin" ? (
-          <Link href="/dashboard/admin" className="font-medium text-zinc-900 underline dark:text-zinc-50">
-            Open the admin console
-          </Link>
-        ) : (
-          <Link href="/dashboard/organizer" className="font-medium text-zinc-900 underline dark:text-zinc-50">
-            {user.role === "organizer" ? "Your organizer status" : "Want to run a campaign? Become an organizer"}
-          </Link>
-        )}
-      </section>
+      <p className="mt-10 border-t border-rule pt-5 text-sm">
+        <Link href={workspace.href} className="inline-flex min-h-8 items-center font-medium underline">
+          {workspace.label}
+        </Link>
+      </p>
 
-      <details className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-        <summary className="cursor-pointer font-medium">Advanced: account details</summary>
-        <dl className="mt-3 space-y-2">
-          <div>
-            <dt className="font-medium">Wallet address</dt>
-            <dd className="break-all font-mono text-xs">{user.walletAddress}</dd>
+      <details className="mt-6 text-sm text-sand">
+        <summary className="cursor-pointer py-2 font-medium">Advanced: account details</summary>
+        <dl className="mt-3 divide-y divide-rule border-y border-rule">
+          <div className="grid gap-x-8 py-3 sm:grid-cols-[13rem_1fr]">
+            <dt className="text-dim">Wallet address</dt>
+            <dd className="break-all font-mono text-[13px]">{user.walletAddress}</dd>
           </div>
-          <div>
-            <dt className="font-medium">Wallet type</dt>
+          <div className="grid gap-x-8 py-3 sm:grid-cols-[13rem_1fr]">
+            <dt className="text-dim">Wallet type</dt>
             <dd>{user.walletType === "generated" ? "Created for you by VERA" : "Your own wallet"}</dd>
           </div>
         </dl>
