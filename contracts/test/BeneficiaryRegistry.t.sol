@@ -28,8 +28,8 @@ contract BeneficiaryRegistryTest is Test {
         token = new MockINR();
         mgr = new MilestoneManager(100e6, 3);
         reg = new BeneficiaryRegistry();
-        vault = new CampaignVault(address(token), organizer, address(mgr));
-        otherVault = new CampaignVault(address(token), otherOrganizer, address(mgr));
+        vault = new CampaignVault(address(token), organizer, address(mgr), uint64(block.timestamp + 365 days), uint64(30 days));
+        otherVault = new CampaignVault(address(token), otherOrganizer, address(mgr), uint64(block.timestamp + 365 days), uint64(30 days));
         mgr.setAttestor(attestor, true);
     }
 

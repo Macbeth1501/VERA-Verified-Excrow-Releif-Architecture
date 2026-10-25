@@ -24,7 +24,7 @@ contract MilestoneManagerTest is Test {
     function setUp() public {
         token = new MockINR();
         mgr = new MilestoneManager(LIMIT, 3);
-        vault = new CampaignVault(address(token), organizer, address(mgr));
+        vault = new CampaignVault(address(token), organizer, address(mgr), uint64(block.timestamp + 365 days), uint64(30 days));
 
         mgr.setAttestor(a1, true);
         mgr.setAttestor(a2, true);
@@ -184,7 +184,7 @@ contract MilestoneManagerTest is Test {
     }
 
     function test_VaultBoundToOtherManagerRejected() public {
-        CampaignVault other = new CampaignVault(address(token), organizer, address(0xBEEF));
+        CampaignVault other = new CampaignVault(address(token), organizer, address(0xBEEF), uint64(block.timestamp + 365 days), uint64(30 days));
         vm.prank(organizer);
         vm.expectRevert(MilestoneManager.VaultNotBoundToThisManager.selector);
         mgr.defineMilestone(address(other), 100, 2);

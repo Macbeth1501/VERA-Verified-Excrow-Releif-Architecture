@@ -16,7 +16,7 @@ contract CampaignVaultTest is Test {
 
     function setUp() public {
         token = new MockINR();
-        vault = new CampaignVault(address(token), organizer, manager);
+        vault = new CampaignVault(address(token), organizer, manager, uint64(block.timestamp + 365 days), uint64(30 days));
 
         token.mint(donor, 1_000e6);
         vm.prank(donor);
@@ -45,7 +45,7 @@ contract CampaignVaultTest is Test {
 
     function test_RevertConstructorZeroManager() public {
         vm.expectRevert(CampaignVault.ZeroAddress.selector);
-        new CampaignVault(address(token), organizer, address(0));
+        new CampaignVault(address(token), organizer, address(0), uint64(block.timestamp + 365 days), uint64(30 days));
     }
 
     /// @dev Regression for the drain bug: no function exists that lets any caller change the

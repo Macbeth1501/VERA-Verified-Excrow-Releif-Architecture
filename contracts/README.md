@@ -10,7 +10,7 @@ For the current state, deployed addresses and open issues, read [`docs/PROGRESS_
 |---|---|
 | `MockINR` | A free mock rupee token (`mINR`, 6 decimals) with an open `mint` faucet, standing in for a real stablecoin. Testnet only. |
 | `CampaignFactory` | Deploys one vault per campaign and enforces, on-chain and non-bypassably: the organizer is verified, the admin-cost cap does not exceed the category ceiling (10% disaster relief, 15% medical, 20% community), and the milestone percentages sum to exactly 100. The owner verifies organizers and sets the milestone manager. |
-| `CampaignVault` | Holds one campaign's escrowed mINR. Anyone can deposit; funds leave only through `releaseForMilestone`, callable solely by the milestone manager fixed at construction (no setter, no admin override). Has an optional, disclosed `pause`. |
+| `CampaignVault` | Holds one campaign's escrowed mINR. Anyone can deposit; funds leave only through `releaseForMilestone`, callable solely by the milestone manager fixed at construction (no setter, no admin override). Has an optional, disclosed `pause`. **Campaign expiry:** it takes a `deadline` and an `inactivityWindow`, keeps a per-donor ledger, and once the deadline passes, no milestone is released for the whole window, or every milestone is released with money left, anyone can `close()` it and each donor pulls back their pro-rata share with `claimRefund()` (a closed vault refuses deposits and releases; `pause` cannot trap donors). Only vaults created by the new Factory have this. |
 | `MilestoneManager` | One shared contract for every vault (Amoy: `0xe6d7222dDe3eE4b9688269427631aDF49229e747`). The vault's organizer registers milestones (at least 2 confirmations each); owner-curated attestors confirm them once each (never the organizer); at M a milestone is Verified. A release is permissionless once milestones total 100, go in order and are Verified, and needs `councilThreshold` (3) council approvals when it exceeds the auto-release limit (100 mINR). Pays the campaign's organizer and emits `MilestoneReleased`. |
 | `BeneficiaryRegistry` | One shared contract, keyed by vault address (Amoy: `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D`). `register(vault, identityHash, photoHash)`, callable only by that vault's organizer, reverts on a repeat `identityHash` for the same vault. No owner, no plaintext. |
 | `Disbursement` | Downstream of the manager (deployed on Amoy at `0x8305ECfbd9365efF27efD6f360C36589C006e5eA`, block 48925371). `disburse(vault, milestoneIndex, identityHash, amount, payoutRef)`, callable only by the vault's organizer after they approve this contract for `amount` of mINR; refuses unless the milestone is Released, the beneficiary is registered for that vault, the milestone was not already paid, and the running total stays within `manager.releasedTotal(vault)`. Emits `PayoutRecorded`. |
@@ -23,7 +23,7 @@ Run from this directory:
 
 ```bash
 forge build
-forge test                                        # 73 tests across 6 suites; fuzz tests run 10,000 times
+forge test                                        # 94 tests across 7 suites; fuzz tests run 10,000 times
 forge test --match-contract CampaignFactoryTest   # one contract
 forge test --match-test testFuzz_ -vvv            # by name, verbose
 ```

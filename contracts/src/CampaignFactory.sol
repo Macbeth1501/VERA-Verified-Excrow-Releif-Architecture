@@ -34,6 +34,11 @@ contract CampaignFactory is Ownable {
     ///         are the same action, never two systems that can drift.
     mapping(address => bool) public isVerifiedOrganizer;
 
+    /// @notice Shortest allowed inactivity window (an hour keeps demos possible) and the longest
+    ///         allowed deadline or window (three years).
+    uint64 public constant MIN_INACTIVITY_WINDOW = 1 hours;
+    uint64 public constant MAX_DEADLINE = 3 * 365 days;
+
     /// @notice The mINR token address every deployed vault will use.
     address public immutable mockToken;
 
@@ -69,6 +74,8 @@ contract CampaignFactory is Ownable {
     error NoMilestones();
     error MilestoneManagerNotConfigured();
     error ZeroAddress();
+    error InvalidDeadline(uint64 deadline);
+    error InvalidInactivityWindow(uint64 window);
 
     constructor(address _mockToken) Ownable(msg.sender) {
         mockToken = _mockToken;
@@ -107,7 +114,9 @@ contract CampaignFactory is Ownable {
         CampaignCategory category,
         uint256 fundingGoal,
         MilestoneInput[] calldata milestones,
-        uint256 adminCapPct
+        uint256 adminCapPct,
+        uint64 deadline,
+        uint64 inactivityWindow
     ) external returns (uint256 campaignId, address vault) {
         if (milestoneManager == address(0)) revert MilestoneManagerNotConfigured();
         if (!isVerifiedOrganizer[msg.sender]) revert OrganizerNotVerified(msg.sender);
@@ -122,7 +131,12 @@ contract CampaignFactory is Ownable {
         }
         if (sum != 100) revert MilestonesDoNotSumTo100(sum);
 
-        vault = address(new CampaignVault(mockToken, msg.sender, milestoneManager));
+        if (deadline <= block.timestamp || deadline > block.timestamp + MAX_DEADLINE) revert InvalidDeadline(deadline);
+        if (inactivityWindow < MIN_INACTIVITY_WINDOW || inactivityWindow > MAX_DEADLINE) {
+            revert InvalidInactivityWindow(inactivityWindow);
+        }
+
+        vault = address(new CampaignVault(mockToken, msg.sender, milestoneManager, deadline, inactivityWindow));
 
         campaignId = _campaigns.length;
         _campaigns.push(

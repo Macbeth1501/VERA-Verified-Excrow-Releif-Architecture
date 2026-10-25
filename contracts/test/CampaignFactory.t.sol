@@ -25,11 +25,15 @@ contract CampaignFactoryTest is Test {
     MockINR internal token;
     CampaignFactory internal factory;
 
+    uint64 internal constant DEADLINE_OFFSET = 365 days;
+    uint64 internal DEADLINE;
+    uint64 internal constant WINDOW = 30 days;
     address internal organizer;
     address internal donor;
     address internal manager;
 
     function setUp() public {
+        DEADLINE = uint64(block.timestamp) + DEADLINE_OFFSET;
         token = new MockINR();
         factory = new CampaignFactory(address(token));
         organizer = makeAddr("organizer");
@@ -51,7 +55,9 @@ contract CampaignFactoryTest is Test {
             CampaignFactory.CampaignCategory.DISASTER_RELIEF,
             1_000e6,
             milestones,
-            10
+            10,
+            DEADLINE,
+            WINDOW
         );
 
         assertEq(campaignId, 0);
@@ -90,7 +96,7 @@ contract CampaignFactoryTest is Test {
         emit CampaignCreated(0, organizer, address(0), CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6);
 
         vm.prank(organizer);
-        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10, DEADLINE, WINDOW);
     }
 
     // ---------------------------------------------------------------------
@@ -102,7 +108,7 @@ contract CampaignFactoryTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(CampaignFactory.OrganizerNotVerified.selector, organizer));
         vm.prank(organizer);
-        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10, DEADLINE, WINDOW);
     }
 
     function test_Revert_AdminCapExceeded() public {
@@ -111,7 +117,7 @@ contract CampaignFactoryTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(CampaignFactory.AdminCapExceeded.selector, 11, 10));
         vm.prank(organizer);
-        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 11);
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 11, DEADLINE, WINDOW);
     }
 
     function test_Revert_MilestonesUnder100() public {
@@ -122,7 +128,7 @@ contract CampaignFactoryTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(CampaignFactory.MilestonesDoNotSumTo100.selector, 90));
         vm.prank(organizer);
-        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10, DEADLINE, WINDOW);
     }
 
     function test_Revert_MilestonesOver100() public {
@@ -133,7 +139,7 @@ contract CampaignFactoryTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(CampaignFactory.MilestonesDoNotSumTo100.selector, 110));
         vm.prank(organizer);
-        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10, DEADLINE, WINDOW);
     }
 
     function test_Revert_NoMilestones() public {
@@ -142,7 +148,7 @@ contract CampaignFactoryTest is Test {
 
         vm.expectRevert(CampaignFactory.NoMilestones.selector);
         vm.prank(organizer);
-        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10, DEADLINE, WINDOW);
     }
 
     function test_Revert_ManagerNotConfigured() public {
@@ -152,7 +158,7 @@ contract CampaignFactoryTest is Test {
 
         vm.expectRevert(CampaignFactory.MilestoneManagerNotConfigured.selector);
         vm.prank(organizer);
-        fresh.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10);
+        fresh.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, milestones, 10, DEADLINE, WINDOW);
     }
 
     // ---------------------------------------------------------------------
@@ -163,7 +169,7 @@ contract CampaignFactoryTest is Test {
         factory.setOrganizerVerified(organizer, true);
         vm.prank(organizer);
         (, address vault) =
-            factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, _milestones60_40(), 10);
+            factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, _milestones60_40(), 10, DEADLINE, WINDOW);
 
         assertEq(CampaignVault(vault).milestoneManager(), manager);
     }
@@ -172,7 +178,7 @@ contract CampaignFactoryTest is Test {
         factory.setOrganizerVerified(organizer, true);
         vm.prank(organizer);
         (, address vault) =
-            factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, _milestones60_40(), 10);
+            factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, _milestones60_40(), 10, DEADLINE, WINDOW);
 
         factory.setMilestoneManager(makeAddr("manager2"));
         assertEq(CampaignVault(vault).milestoneManager(), manager);
@@ -204,7 +210,9 @@ contract CampaignFactoryTest is Test {
             CampaignFactory.CampaignCategory.DISASTER_RELIEF,
             1_000e6,
             milestones,
-            10
+            10,
+            DEADLINE,
+            WINDOW
         );
 
         token.mint(donor, amount);
@@ -228,5 +236,47 @@ contract CampaignFactoryTest is Test {
         milestones[0].targetPct = 60;
         milestones[1].targetPct = 40;
         return milestones;
+    }
+
+    // ---------------------------------------------------------------------
+    // Expiry schedule
+    // ---------------------------------------------------------------------
+
+    function test_VaultCarriesTheSchedule() public {
+        factory.setOrganizerVerified(organizer, true);
+        vm.prank(organizer);
+        (, address vault) = factory.createCampaign(
+            CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, _milestones60_40(), 10, DEADLINE, WINDOW
+        );
+        assertEq(CampaignVault(vault).deadline(), DEADLINE);
+        assertEq(CampaignVault(vault).inactivityWindow(), WINDOW);
+    }
+
+    function test_Revert_DeadlineInThePastOrTooFar() public {
+        factory.setOrganizerVerified(organizer, true);
+        CampaignFactory.MilestoneInput[] memory ms = _milestones60_40();
+        uint64 past = uint64(block.timestamp);
+        uint64 tooFar = uint64(block.timestamp) + factory.MAX_DEADLINE() + 1;
+
+        vm.startPrank(organizer);
+        vm.expectRevert(abi.encodeWithSelector(CampaignFactory.InvalidDeadline.selector, past));
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, ms, 10, past, WINDOW);
+        vm.expectRevert(abi.encodeWithSelector(CampaignFactory.InvalidDeadline.selector, tooFar));
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, ms, 10, tooFar, WINDOW);
+        vm.stopPrank();
+    }
+
+    function test_Revert_InactivityWindowOutOfRange() public {
+        factory.setOrganizerVerified(organizer, true);
+        CampaignFactory.MilestoneInput[] memory ms = _milestones60_40();
+        uint64 tooShort = factory.MIN_INACTIVITY_WINDOW() - 1;
+        uint64 tooLong = factory.MAX_DEADLINE() + 1;
+
+        vm.startPrank(organizer);
+        vm.expectRevert(abi.encodeWithSelector(CampaignFactory.InvalidInactivityWindow.selector, tooShort));
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, ms, 10, DEADLINE, tooShort);
+        vm.expectRevert(abi.encodeWithSelector(CampaignFactory.InvalidInactivityWindow.selector, tooLong));
+        factory.createCampaign(CampaignFactory.CampaignCategory.DISASTER_RELIEF, 1_000e6, ms, 10, DEADLINE, tooLong);
+        vm.stopPrank();
     }
 }

@@ -40,7 +40,7 @@ contract DisbursementTest is Test {
         mgr = new MilestoneManager(LIMIT, 3);
         reg = new BeneficiaryRegistry();
         dis = new Disbursement(address(token), address(mgr), address(reg));
-        vault = new CampaignVault(address(token), organizer, address(mgr));
+        vault = new CampaignVault(address(token), organizer, address(mgr), uint64(block.timestamp + 365 days), uint64(30 days));
 
         mgr.setAttestor(a1, true);
         mgr.setAttestor(a2, true);
@@ -161,7 +161,7 @@ contract DisbursementTest is Test {
     }
 
     function test_BeneficiaryOfAnotherCampaignDoesNotCount() public {
-        CampaignVault other = new CampaignVault(address(token), organizer, address(mgr));
+        CampaignVault other = new CampaignVault(address(token), organizer, address(mgr), uint64(block.timestamp + 365 days), uint64(30 days));
         bytes32 elsewhereId = keccak256("registered-elsewhere");
         vm.prank(organizer);
         reg.register(address(other), elsewhereId, 0);
@@ -233,7 +233,7 @@ contract DisbursementTest is Test {
 
     function test_VaultBoundToAnotherManagerReverts() public {
         MilestoneManager other = new MilestoneManager(LIMIT, 3);
-        CampaignVault foreign = new CampaignVault(address(token), organizer, address(other));
+        CampaignVault foreign = new CampaignVault(address(token), organizer, address(other), uint64(block.timestamp + 365 days), uint64(30 days));
         vm.prank(organizer);
         reg.register(address(foreign), ID, 0);
         token.mint(organizer, 10e6);
