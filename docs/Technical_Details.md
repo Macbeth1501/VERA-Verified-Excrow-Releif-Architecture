@@ -66,7 +66,7 @@ graph TD
 | **Styling & Design System**| Tailwind CSS `v4.0` | Sleek dark-mode aesthetic, financial dashboards, glassmorphism, responsive tables | `apps/web/app/globals.css` |
 | **Database & ORM** | SQLite (`better-sqlite3`) + Drizzle ORM | Fast, embedded ACID relational store for off-chain profiles, state machines, and indexer cursors | `apps/web/lib/db/` |
 | **Web3 Client Engine** | Viem `v2.56.7` | Type-safe JSON-RPC interface, contract simulation, event decoding, raw transaction signing | `apps/web/lib/chain/` |
-| **Manual/ad hoc E2E** | Chrome DevTools, occasionally a scratch Playwright-core script | Multi-role walkthroughs (Admin, Donor, Attestor, Council) verified by hand; not part of the committed test suite | `docs/manual_test.md` (script), scratch folders (not in the repo) |
+| **Manual/ad hoc E2E** | Chrome DevTools, occasionally a scratch Playwright-core script | Multi-role walkthroughs (Admin, Donor, Attestor, Council) verified by hand; not part of the committed test suite | `docs/manual_test_local.md` (script), scratch folders (not in the repo) |
 | **Unit & Integration Test**| Vitest `v5.0.1` | Fast unit testing of cryptography, token buckets, and donation state machines | `apps/web/lib/**/*.test.ts` |
 | **Authentication & Crypto**| `jose` + `bcryptjs` + Web Crypto API | HS256 JWT sessions in HttpOnly cookies, bcrypt password hashing, AES-256-GCM wallet encryption | `apps/web/lib/auth/` |
 | **Data Validation** | Zod `v4.6.5` | Shared runtime schema validation for API requests and UI form inputs | `apps/web/lib/campaigns/validation.ts` |
@@ -251,7 +251,7 @@ Testing this ecosystem with simple API unit tests is insufficient because:
 
 #### How the manual/scratch browser walkthrough works
 *   **Multi-Context Session Orchestration**: separate incognito browser windows/profiles represent each distinct actor simultaneously (one cookie = one signed-in person).
-*   **Step-by-Step Scenario** (see `docs/manual_test.md` for the full script, runnable at 0 POL against a local anvil chain):
+*   **Step-by-Step Scenario** (see `docs/manual_test_local.md` for the full script, runnable at 0 POL against a local anvil chain):
     1.  *Admin Context*: Logs in, approves pending organizer KYB, sets on-chain attestor role.
     2.  *Organizer Context*: Creates "Assam Flood Relief 2026" with 3 milestones, deploys vault on Anvil.
     3.  *Donor Context*: Registers new user, receives auto-generated AES-256 encrypted wallet, mints 500 mINR, and executes deposit.
@@ -414,7 +414,7 @@ pnpm dev
 | Contract Name | Polygon Amoy Contract Address | Deployment Block |
 | :--- | :--- | :--- |
 | **MockINR (`mINR`)** | `0x9b6f00a1ce627a3e0d2da601253704084d8fc52c` | `47969900` |
-| **CampaignFactory** | `0x6931E776da5db1D9e5890407FE268705D70740bD` | `47969967` |
+| **CampaignFactory** | `0xcBA47322e213107C19Be706e6817629744A42364` | `51136547` (replaced old `0x6931E776da5db1D9e5890407FE268705D70740bD`, block 47969967, on 2026-10-26) |
 | **MilestoneManager** | `0xe6d7222dDe3eE4b9688269427631aDF49229e747` | `47997230` |
 | **BeneficiaryRegistry** | `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D` | `48161539` |
 | **Disbursement** | `0x8305ECfbd9365efF27efD6f360C36589C006e5eA` | `48925371` |

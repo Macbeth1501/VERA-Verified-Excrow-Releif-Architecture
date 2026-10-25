@@ -30,7 +30,8 @@ Plain-words version, with a glossary, lives in the running app at `/how-it-works
 
 | File | Contents |
 |---|---|
-| [`docs/manual_test.md`](docs/manual_test.md) | Run and test the whole app in your browser on a local chain, for free |
+| [`docs/manual_test_local.md`](docs/manual_test_local.md) | Run and test the whole app in your browser on a local chain, for free |
+| [`docs/manual_test_live.md`](docs/manual_test_live.md) | The same walkthrough on real Polygon Amoy: pre-flight checks, per-step POL cost, troubleshooting |
 | [`docs/VERA_MVP_SPDD.md`](docs/VERA_MVP_SPDD.md) | Architecture, contracts and security (source of truth) |
 | [`docs/VERA_MVP_Functional_Roadmap.md`](docs/VERA_MVP_Functional_Roadmap.md) | Requirements and business logic per module |
 | [`docs/Technical_Details.md`](docs/Technical_Details.md), [`docs/Project_Overview.md`](docs/Project_Overview.md) | Technical and non-technical walkthroughs |
@@ -48,7 +49,7 @@ pnpm install
 
 ### Try it locally, free (recommended)
 
-The full guide is [`docs/manual_test.md`](docs/manual_test.md). In short: start a local chain with `anvil --chain-id 80002 --block-time 1`, deploy the five contracts, put their addresses in `apps/web/.env.development.local`, then run `pnpm dev` and open http://localhost:3000. No testnet funds or real keys are involved (anvil's dev keys are public and worth nothing).
+The full guide is [`docs/manual_test_local.md`](docs/manual_test_local.md). In short: start a local chain with `anvil --chain-id 80002 --block-time 1`, deploy the five contracts, put their addresses in `apps/web/.env.development.local`, then run `pnpm dev` and open http://localhost:3000. No testnet funds or real keys are involved (anvil's dev keys are public and worth nothing).
 
 ### Run against Polygon Amoy
 
@@ -65,12 +66,12 @@ You need an RPC URL, the deployed contract addresses (below), two generated secr
 pnpm dev         # Next.js dev server on http://localhost:3000
 pnpm build       # production build
 pnpm lint        # eslint
-pnpm test        # forge test (contracts): 73 tests, fuzz at 10,000 runs
-pnpm test:web    # vitest (web): 367 pass, 2 opt-in live tests skipped
+pnpm test        # forge test (contracts): 94 tests, fuzz at 10,000 runs
+pnpm test:web    # vitest (web): 397 pass, 3 opt-in live tests skipped
 pnpm --filter @vera/types typecheck
 ```
 
-Two opt-in end-to-end tests drive the real routes against a real chain. Run them against a local anvil chain (free); the Amoy variant spends testnet POL. Details and exact commands are in `docs/manual_test.md` section 8.
+Two opt-in end-to-end tests drive the real routes against a real chain. Run them against a local anvil chain (free); the Amoy variant spends testnet POL. Details and exact commands are in `docs/manual_test_local.md` section 8.
 
 ## What costs testnet POL
 
@@ -89,14 +90,14 @@ Testnet POL from the Amoy faucet is scarce. On a **local anvil chain nothing cos
 | Attest, council approval, release | Free | Costs POL each (sponsored gas) |
 | Register a beneficiary, record a payout | Free | Costs POL each (sponsored gas) |
 
-The app refuses sponsored actions when gas is above 150 gwei, so a spike cannot drain the wallet. Before any Amoy spend, check the sponsor balance with `cast balance` and the gas price with `cast gas-price`. To top up, see [`docs/mining_instructions.md`](docs/mining_instructions.md). To prove a real-chain code path, use a local chain first ([`docs/manual_test.md`](docs/manual_test.md)).
+The app refuses sponsored actions when gas is above 150 gwei, so a spike cannot drain the wallet. Before any Amoy spend, check the sponsor balance with `cast balance` and the gas price with `cast gas-price`. To top up, see [`docs/mining_instructions.md`](docs/mining_instructions.md). To prove a real-chain code path, use a local chain first ([`docs/manual_test_local.md`](docs/manual_test_local.md)).
 
 ## Deployed on Polygon Amoy (chain id 80002)
 
 | Contract | Address |
 |---|---|
 | MockINR | `0x9b6f00a1ce627a3e0d2da601253704084d8fc52c` |
-| CampaignFactory | `0x6931E776da5db1D9e5890407FE268705D70740bD` |
+| CampaignFactory | `0xcBA47322e213107C19Be706e6817629744A42364` (block 51136547; replaced the old 4-argument Factory `0x6931E776da5db1D9e5890407FE268705D70740bD` on 2026-10-26) |
 | MilestoneManager | `0xe6d7222dDe3eE4b9688269427631aDF49229e747` |
 | BeneficiaryRegistry | `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D` |
 | Disbursement | `0x8305ECfbd9365efF27efD6f360C36589C006e5eA` |

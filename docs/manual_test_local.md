@@ -1,4 +1,6 @@
-# Manual test guide: run and test VERA in your browser, for free
+# Manual test guide (LOCAL): run and test VERA in your browser, for free
+
+> **This is the local-chain guide.** For the real Polygon Amoy testnet (costs POL) use [`manual_test_live.md`](manual_test_live.md).
 
 This guide takes you from a clean machine to a fully working copy of VERA in your browser, and then walks through every feature: registration, organizer approval, publishing a campaign, donating, milestone confirmation, council approval, release and the public audit page.
 
@@ -231,7 +233,7 @@ Expected: it prints that the account is now an admin. Sign in as `admin@test.com
 
 ### Step 5: Create and publish a campaign
 1. Sign in as `org@test.com` and open the dashboard to create a campaign.
-2. Title: `Local test campaign`. Summary: any sentence of 20+ characters. Category: Community. Goal: `500` (rupees). Admin cost cap: `10`.
+2. Title: `Local test campaign`. Summary: any sentence of 20+ characters. Category: Community. Goal: `500` (rupees). Admin cost cap: `10`. Under **When donors get their money back** keep the defaults (runs for `90` days, refund if no progress for `30` days); you will move the clock in step 9c.
 3. Add two milestones:
    - "First tranche: supplies delivered", **40**%, **2** confirmations
    - "Second tranche: work completed", **60**%, **2** confirmations
@@ -291,6 +293,19 @@ Open `http://localhost:3000/campaigns` and click the campaign (no sign-in needed
 - Open `http://localhost:3000/activity`. Expected: a summary strip (Locked, Confirmed, Released, Paid out), events grouped under date headings, each with a transaction link and a "Contract and block" disclosure.
 - Press Tab once on any page. Expected: a "Skip to main content" link appears; Enter moves focus to the page content.
 
+### Step 9c: Expiry and refunds (campaign end date)
+Use a second campaign so the first stays as it is. Create it as in step 5 (two 50% milestones, 2 confirmations each) but set **Refund if no progress for** to `7` days. Donate `60` as `donor@test.com` and `20` as a second donor (register `donor2@test.com`), then have the attestors confirm and the organizer release milestone 1 (50% of 80 = 40 mINR to the organizer, 40 mINR stays in the vault).
+1. On the public campaign page the **End date and refunds** section says donations are open until the deadline and when the 7-day inactivity period ends. Sign in as anyone and try to close it. There is no close button yet because it is not closable.
+2. Move anvil's clock 8 days forward (in Terminal B):
+   ```bash
+   cast rpc evm_increaseTime 691200 --rpc-url http://127.0.0.1:8545
+   cast rpc evm_mine --rpc-url http://127.0.0.1:8545
+   ```
+   The next page refresh shows "No milestone has been released for the whole inactivity period" and a **Close this campaign** button. Click it as any signed-in user. Expected: the section says the campaign was closed and that 40 mINR is shared back to donors.
+3. As `donor@test.com` the section offers **Claim ₹30.00**; as `donor2@test.com` it offers **Claim ₹10.00** (shares of the 40 in proportion to 60 and 20). Claim both. Expected: each claim works once, "Refunded to donors" shows ₹40.00, "Still held in escrow" shows ₹0.00, and the reconciliation badge still says the totals match. A second claim, or a claim by someone who never donated, is refused with a plain message.
+4. Try to donate to the closed campaign. Expected: the donate panel says it is no longer taking donations.
+5. Restore the clock for later tests: the simplest way is to stop anvil and follow "Starting over" (the shifted time stays in anvil's memory).
+
 ### Step 10: Try to break it
 Each of these should end in a plain-language refusal, and no money should move:
 - The same attestor confirming a milestone twice.
@@ -321,7 +336,15 @@ npx vitest run lib/escrow/live-amoy.test.ts
 
 Expected: `1 passed` (about 2.5 minutes; passed 2026-10-03). If `DISBURSEMENT_ADDRESS` and the registry are also in your environment this test additionally records a 30 mINR payout, which matters for the next test (see the warning below). **Never run this with your Amoy settings**: against Amoy it costs about 0.3-0.5 POL a run and takes 10-15 minutes (if it is ever run on Amoy, do it in the background with output redirected to a file, not with a shell timeout or a pipe; it was run that way successfully on 2026-09-30). The project rule is to spend POL only when strictly necessary.
 
-There is a second one, `lib/disbursement/live-local.test.ts`, covering beneficiary registration and a payout end to end (needs all five contracts from section 4, including Disbursement):
+There is a third, `lib/expiry/live-local.test.ts`, which proves expiry end to end with the real contracts: it publishes with a 7-day inactivity window, refuses an early close, moves the clock 8 days, closes, refunds two donors pro rata (30 and 10 of the 40 left), and checks the ledger reconciles. It needs the contracts from section 4 (built from the current code) and `FACTORY_ADDRESS`/`MILESTONE_MANAGER_ADDRESS`; it passed on 2026-10-26 in 112 seconds:
+
+```bash
+LIVE_LOCAL=1 FACTORY_OWNER_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+RPC_URL=http://127.0.0.1:8545 MOCK_INR_ADDRESS=<step 1 address> FACTORY_ADDRESS=<step 3 address> \
+MILESTONE_MANAGER_ADDRESS=<step 2 address> npx vitest run lib/expiry/live-local.test.ts
+```
+
+There is also `lib/disbursement/live-local.test.ts`, covering beneficiary registration and a payout end to end (needs all five contracts from section 4, including Disbursement):
 
 ```bash
 LIVE_LOCAL=1 \
@@ -342,8 +365,8 @@ Expected: `1 passed` (takes about 85 seconds). **Run it against a Disbursement c
 From the repository root:
 
 ```bash
-pnpm test                      # contract tests: 73 passing (fuzz at 10,000 runs)
-pnpm test:web                  # web tests against simulated chains: 367 passing, 2 skipped (the 2 are the opt-in live tests)
+pnpm test                      # contract tests: 94 passing (fuzz at 10,000 runs)
+pnpm test:web                  # web tests against simulated chains: 397 passing, 3 skipped (the 3 are the opt-in live tests)
 cd apps/web && npx tsc --noEmit && npx eslint . && cd ../..    # should print nothing
 pnpm build                     # production build; stop pnpm dev first
 ```
@@ -368,7 +391,7 @@ If you skip step 2 after restarting anvil, the website will show data from a cha
 2. **Delete or rename `apps/web/.env.development.local`** (e.g. `mv apps/web/.env.development.local apps/web/.env.development.local.bak` if you want to keep it for next time). Do this as soon as you're done with a local-chain session, not "eventually" — it is easy to forget it exists, and it silently overrides `.env.local` with no warning on screen. This exact thing happened once: a campaign and a donation were made believing they were on real Amoy, while `pnpm dev` was actually still pointed at a long-gone local anvil chain.
 3. Start `pnpm dev` again. It now reads `apps/web/.env.local` (Amoy). If you're not sure which one it's using, check the admin console or a fresh publish/donation against `cast balance`/`amoy.polygonscan.com` — Amoy activity should show up there within seconds.
 
-On real Amoy, `.env.local` now also carries `DISBURSEMENT_ADDRESS` (`0x8305ECfbd9365efF27efD6f360C36589C006e5eA`) and `DISBURSEMENT_START_BLOCK` (`48925371`), so the payout card and public Payouts section are switched on there too. Remember: on Amoy, anything that sends a transaction needs POL in the sponsor wallet and `FACTORY_OWNER_KEY` in `.env.local`. See `docs/mining_instructions.md`.
+To walk through the app on real Amoy, follow [`manual_test_live.md`](manual_test_live.md). Remember: on Amoy, anything that sends a transaction needs POL in the sponsor wallet and `FACTORY_OWNER_KEY` in `.env.local`. See `docs/mining_instructions.md`.
 
 ## 12. Troubleshooting
 
@@ -387,7 +410,7 @@ On real Amoy, `.env.local` now also carries `DISBURSEMENT_ADDRESS` (`0x8305ECfbd
 
 ## Which steps would cost POL on Amoy
 
-Nothing above does, because everything runs on anvil. Pointed at real Amoy instead, these would each spend POL from the sponsor wallet: approving an organizer, granting attestor/council roles (section 7, steps 3-4), publishing a campaign (step 5, includes a gas top-up for the organizer), a donor's first donation (step 6, about 0.03 POL), attestations, council approvals and releases (steps 7-8), and beneficiary registration and payouts (step 8b). Running `live-amoy.test.ts` on Amoy costs about 0.3 POL per run. Reads, the public pages and all the free checks in section 9 cost nothing. Do not point this walkthrough at Amoy casually; see the "Testnet POL rule" in `CLAUDE.md`.
+Nothing above does, because everything runs on anvil. Pointed at real Amoy instead, the same steps spend POL from the sponsor wallet; the per-step costs are in [`manual_test_live.md`](manual_test_live.md). Do not point this walkthrough at Amoy casually; see the "Testnet POL rule" in `CLAUDE.md`.
 
 ## 13. What this test does not prove
 
@@ -395,4 +418,4 @@ Nothing above does, because everything runs on anvil. Pointed at real Amoy inste
 - Real gas prices and spikes (anvil's gas is nearly free).
 - Timing with real block times (Amoy is about 2 seconds a block).
 
-Those can only be checked on the real testnet, which costs POL. Do that rarely and deliberately, after asking; see the "Testnet POL rule" in `CLAUDE.md`.
+Those can only be checked on the real testnet, which costs POL: see [`manual_test_live.md`](manual_test_live.md). Do that rarely and deliberately, after asking; see the "Testnet POL rule" in `CLAUDE.md`.
