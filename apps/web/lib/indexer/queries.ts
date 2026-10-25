@@ -23,12 +23,17 @@ export interface VaultTotals {
   totalDonated: string;
   /** Sum of all indexed milestone releases, in mINR minor units. Derived, never stored. */
   totalReleased: string;
-  /** What the vault should hold: donations minus releases. */
+  /** Sum of all indexed refunds claimed by donors after the campaign closed. Derived, never stored. */
+  totalRefunded: string;
+  /** What the vault should hold: donations minus releases minus refunds. */
   balance: string;
   /** Sum of all indexed PayoutRecorded events: released money the organizer paid to beneficiaries. */
   totalPaidOut: string;
   payoutCount: number;
   donationCount: number;
+  refundCount: number;
+  /** Set once the vault emitted CampaignClosed: why, and the pool the donors share. */
+  closed: { reason: "deadline" | "inactivity" | "completed"; refundPool: string; blockNumber: number; timestamp: string } | null;
   /** Unique beneficiaries registered on the BeneficiaryRegistry for this vault, from indexed events. */
   beneficiaryCount: number;
   /** Highest block this vault has been indexed through, or null if never indexed. */
@@ -37,6 +42,7 @@ export interface VaultTotals {
 
 const ACTOR_KEY: Partial<Record<EventName, string>> = {
   DonationReceived: "donor",
+  RefundClaimed: "donor",
   CampaignCreated: "organizer",
   MilestoneAttested: "attestor",
   CouncilApproved: "member",
@@ -54,7 +60,10 @@ const MILESTONE_INDEX_ARG: Partial<Record<EventName, string>> = {
   PayoutRecorded: "milestoneIndex",
 };
 
-const HAS_AMOUNT: ReadonlySet<EventName> = new Set(["DonationReceived", "MilestoneReleased", "PayoutRecorded"]);
+const HAS_AMOUNT: ReadonlySet<EventName> = new Set(["DonationReceived", "MilestoneReleased", "PayoutRecorded", "RefundClaimed"]);
+
+/** The vault's CloseReason enum, in contract order. */
+const CLOSE_REASONS = ["deadline", "inactivity", "completed"] as const;
 
 /**
  * One payout to a beneficiary, as the Disbursement contract recorded it (FR-ESC-02). The beneficiary
@@ -121,15 +130,29 @@ export function vaultTotals(db: Db, vault: string): VaultTotals {
   const donated = sum("DonationReceived");
   const released = sum("MilestoneReleased");
   const paidOut = sum("PayoutRecorded");
+  const refunded = sum("RefundClaimed");
+  const closeEvent = events.find((e) => e.eventName === "CampaignClosed");
+  const closeArgs = closeEvent ? (JSON.parse(closeEvent.args) as { reason: string; refundPool: string }) : null;
   const cursor = allCursors(db).find((c) => c.stream === `vault:${vault.toLowerCase()}`);
   return {
     vault: vault.toLowerCase(),
     totalDonated: donated.toString(),
     totalReleased: released.toString(),
-    balance: (donated - released).toString(),
+    totalRefunded: refunded.toString(),
+    balance: (donated - released - refunded).toString(),
     totalPaidOut: paidOut.toString(),
     payoutCount: events.filter((e) => e.eventName === "PayoutRecorded").length,
     donationCount: events.filter((e) => e.eventName === "DonationReceived").length,
+    refundCount: events.filter((e) => e.eventName === "RefundClaimed").length,
+    closed:
+      closeEvent && closeArgs
+        ? {
+            reason: CLOSE_REASONS[Number(closeArgs.reason)] ?? "deadline",
+            refundPool: closeArgs.refundPool,
+            blockNumber: closeEvent.blockNumber,
+            timestamp: closeEvent.blockTimestamp,
+          }
+        : null,
     beneficiaryCount: events.filter((e) => e.eventName === "BeneficiaryRegistered").length,
     indexedThroughBlock: cursor?.lastBlock ?? null,
   };

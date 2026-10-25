@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, type Db } from "../db";
+import { campaigns } from "../db/schema";
 import { advanceDonation } from "./advance";
 import {
   CampaignNotOpenError, DonationNotFoundError, FeeChoiceRequiredError, WalletNotManagedError,
@@ -50,6 +52,18 @@ describe("creating a donation", () => {
     const campaign = await makeLiveCampaign(db);
     const own = await makeDonor(db, "0xb2Ab1471d98909237B3F3828E7422182584E11E3");
     expect(() => createDonation(db, { userId: own.id, campaignId: campaign.id, amountMinorUnits: RUPEES_100 }, 0n)).toThrow(WalletNotManagedError);
+  });
+
+  it("refuses a donation once the campaign's end date has passed, and accepts one before it", async () => {
+    const campaign = await makeLiveCampaign(db);
+    const donor = await makeDonor(db);
+    const input = { userId: donor.id, campaignId: campaign.id, amountMinorUnits: RUPEES_100 };
+
+    db.update(campaigns).set({ deadlineAt: new Date(Date.now() + 86_400_000).toISOString() }).where(eq(campaigns.id, campaign.id)).run();
+    expect(createDonation(db, input, 0n).status).toBe("PENDING");
+
+    db.update(campaigns).set({ deadlineAt: new Date(Date.now() - 1000).toISOString() }).where(eq(campaigns.id, campaign.id)).run();
+    expect(() => createDonation(db, input, 0n)).toThrow(CampaignNotOpenError);
   });
 
   it("never pre-selects a fee: with a fee configured the donor must choose", async () => {

@@ -33,6 +33,30 @@ export function donation(vault: string, blockNumber: number, amount: string, log
   };
 }
 
+export function closedEvent(vault: string, blockNumber: number, reason: 0 | 1 | 2, refundPool: string): RawEvent {
+  return {
+    name: "CampaignClosed",
+    contract: vault,
+    vault,
+    blockNumber,
+    txHash: `0x1${String(++counter).padStart(63, "0")}`,
+    logIndex: 0,
+    args: { reason: String(reason), refundPool },
+  };
+}
+
+export function refunded(vault: string, blockNumber: number, amount: string, donor = DONOR): RawEvent {
+  return {
+    name: "RefundClaimed",
+    contract: vault,
+    vault,
+    blockNumber,
+    txHash: `0x2${String(++counter).padStart(63, "0")}`,
+    logIndex: 0,
+    args: { donor, amount, newBalance: "0" },
+  };
+}
+
 export function released(vault: string, blockNumber: number, amount: string, index = 0): RawEvent {
   return {
     name: "MilestoneReleased",
@@ -117,7 +141,7 @@ export class FakeChain implements ChainReader {
   }
 
   async vaultEvents(vault: string, from: number, to: number) {
-    return this.read(`vault:${vault}`, from, to, (e) => e.name === "DonationReceived" && e.vault === vault);
+    return this.read(`vault:${vault}`, from, to, (e) => ["DonationReceived", "CampaignClosed", "RefundClaimed"].includes(e.name) && e.vault === vault);
   }
 
   async managerEvents(from: number, to: number) {

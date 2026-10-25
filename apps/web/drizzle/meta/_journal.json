@@ -64,6 +64,13 @@
       "when": 1790658056995,
       "tag": "0008_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1792956325809,
+      "tag": "0009_campaign_expiry",
+      "breakpoints": true
     }
   ]
 }

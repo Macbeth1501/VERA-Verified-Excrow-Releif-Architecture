@@ -7,7 +7,7 @@ import { createDonationSchema } from "@/lib/donations/validation";
 import type { DonationView } from "@/lib/donations/service";
 import { DonationProgress } from "./DonationProgress";
 
-export type DonateState = "signed_out" | "own_wallet" | "off" | "ready";
+export type DonateState = "signed_out" | "own_wallet" | "off" | "closed" | "ready";
 
 const QUICK_AMOUNTS = ["100", "500", "1000"];
 const BOX = "rounded-lg border border-rule p-6 ";
@@ -68,6 +68,7 @@ export function DonatePanel({
     );
   }
   if (state === "off") return <Notice>Donations are switched off on this server right now.</Notice>;
+  if (state === "closed") return <Notice>This campaign is no longer taking donations: its end date has passed or it has been closed. See below for refunds.</Notice>;
 
   if (donation) {
     return (

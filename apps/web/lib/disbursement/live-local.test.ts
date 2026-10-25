@@ -2,7 +2,7 @@
  * OPT-IN end-to-end run against a LOCAL anvil chain (0 POL): the real route handlers, the real
  * viem chain modules (manager, registry, disbursement) and the real indexer reader, with every
  * contract deployed on anvil. It exists because the unit tests use fake chains, so this is the only
- * automated proof that the real `lib/chain/disbursement.ts` and its ABIs work. See docs/manual_test.md
+ * automated proof that the real `lib/chain/disbursement.ts` and its ABIs work. See docs/manual_test_local.md
  * for starting anvil and deploying the five contracts; then:
  *
  *   LIVE_LOCAL=1 RPC_URL=http://127.0.0.1:8545 MOCK_INR_ADDRESS=... FACTORY_ADDRESS=... \

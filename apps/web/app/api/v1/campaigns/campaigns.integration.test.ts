@@ -239,9 +239,38 @@ describe("deploying the vault on-chain", () => {
         fundingGoalMinorUnits: "1000000000",
         adminExpenseCapPct: 10,
         milestonePcts: [60, 40],
+        durationDays: 90,
+        inactivityDays: 30,
       }),
     );
     expect(chain.deployCampaignVault.mock.calls[0][0].organizerWalletKeyEnc).toBeTruthy();
+  });
+
+  it("passes a custom schedule to the chain and records the deadline the vault was given", async () => {
+    const org = await makeOrganizer();
+    chain.deployCampaignVault.mockResolvedValueOnce({
+      status: "deployed",
+      vaultAddress: VAULT,
+      onchainCampaignId: 8,
+      txHash: "0xfeed",
+      deadlineAt: "2027-01-15T00:00:00.000Z",
+    });
+    const res = await create(req("POST", { ...campaignInput, durationDays: 14, inactivityDays: 5 }, org.cookie));
+    expect(res.status).toBe(201);
+    const campaignId = (await res.json()).campaign_id;
+    const deployed = await (await deploy(req("POST", undefined, org.cookie), ctx(campaignId))).json();
+
+    expect(chain.deployCampaignVault).toHaveBeenCalledWith(expect.objectContaining({ durationDays: 14, inactivityDays: 5 }));
+    expect(deployed.campaign.durationDays).toBe(14);
+    expect(deployed.campaign.inactivityDays).toBe(5);
+    expect(deployed.campaign.deadlineAt).toBe("2027-01-15T00:00:00.000Z");
+  });
+
+  it("leaves the deadline empty when the chain reports none, so such a campaign shows no expiry", async () => {
+    const org = await makeOrganizer();
+    const { body } = await createFor(org);
+    const deployed = await (await deploy(req("POST", undefined, org.cookie), ctx(body.campaign_id))).json();
+    expect(deployed.campaign.deadlineAt).toBeNull();
   });
 
   it("uses the organizer's wallet even when an admin retries, never the admin's", async () => {

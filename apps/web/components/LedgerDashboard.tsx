@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ExpiryPanel } from "@/components/ExpiryPanel";
 import { StageTrack } from "@/components/StageRail";
 import { CATEGORY_LABEL } from "@/lib/campaigns/ceilings";
 import type { DashboardData } from "@/lib/campaigns/dashboard";
@@ -278,7 +279,7 @@ function AccountRow({ label, note, value, testId, strong }: { label: string; not
   );
 }
 
-export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardData; donateSlot?: ReactNode }) {
+export function LedgerDashboard({ initial, donateSlot, signedIn = false }: { initial: DashboardData; donateSlot?: ReactNode; signedIn?: boolean }) {
   const { data, refreshFailed, refresh } = useLiveData(initial);
   const { campaign, escrow, organizer } = data;
   const progress = Math.min(100, escrow.goalReachedBps / 100);
@@ -287,6 +288,7 @@ export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardDat
   const exportBase = `/api/v1/campaigns/${campaign.id}/export`;
   const released = BigInt(escrow.totalReleasedMinorUnits);
   const paidOut = BigInt(data.payouts.totalMinorUnits);
+  const refunded = BigInt(escrow.totalRefundedMinorUnits);
 
   return (
     <main className="flex-1 py-10 lg:py-14">
@@ -366,7 +368,21 @@ export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardDat
                 note="With the organizer, waiting to be recorded as payouts to beneficiaries"
               />
             ) : null}
-            <AccountRow label="Still held in escrow" value={formatMinorUnits(escrow.heldMinorUnits)} testId="held" strong note="Donated minus released" />
+            {refunded > 0n ? (
+              <AccountRow
+                label="Refunded to donors"
+                value={formatMinorUnits(escrow.totalRefundedMinorUnits)}
+                testId="refunded"
+                note="Taken back by donors after the campaign was closed"
+              />
+            ) : null}
+            <AccountRow
+              label="Still held in escrow"
+              value={formatMinorUnits(escrow.heldMinorUnits)}
+              testId="held"
+              strong
+              note={refunded > 0n ? "Donated minus released minus refunded" : "Donated minus released"}
+            />
           </dl>
 
           <div className="mt-8">
@@ -385,6 +401,10 @@ export function LedgerDashboard({ initial, donateSlot }: { initial: DashboardDat
               <div className="h-full rounded-full bg-copper" style={{ width: `${progress}%` }} />
             </div>
             <p className="mt-3 text-sm text-dim">Admin costs are capped at {campaign.adminExpenseCapPct}% by the contract itself, not by policy.</p>
+          </div>
+
+          <div className="mt-10">
+            <ExpiryPanel campaignId={campaign.id} expiry={data.expiry} signedIn={signedIn} onChanged={refresh} />
           </div>
         </section>
 

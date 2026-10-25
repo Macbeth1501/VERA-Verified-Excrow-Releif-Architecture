@@ -15,6 +15,8 @@ export const ACTIVITY_TYPES: readonly EventName[] = [
   "MilestoneReleased",
   "BeneficiaryRegistered",
   "PayoutRecorded",
+  "CampaignClosed",
+  "RefundClaimed",
 ];
 
 export const ACTIVITY_TITLE: Record<EventName, string> = {
@@ -27,6 +29,8 @@ export const ACTIVITY_TITLE: Record<EventName, string> = {
   MilestoneReleased: "Funds released",
   BeneficiaryRegistered: "Beneficiary registered",
   PayoutRecorded: "Payout to a beneficiary",
+  CampaignClosed: "Campaign closed",
+  RefundClaimed: "Refund claimed",
 };
 
 /** The deployed contracts, so a row can say which one emitted the event. */
@@ -83,6 +87,7 @@ const short = (address: string) => (address.length > 12 ? `${address.slice(0, 6)
 
 const ACTOR_KEY: Partial<Record<EventName, string>> = {
   DonationReceived: "donor",
+  RefundClaimed: "donor",
   CampaignCreated: "organizer",
   MilestoneAttested: "attestor",
   CouncilApproved: "member",
@@ -99,7 +104,7 @@ const MILESTONE_INDEX_ARG: Partial<Record<EventName, string>> = {
   PayoutRecorded: "milestoneIndex",
 };
 
-const HAS_AMOUNT: ReadonlySet<EventName> = new Set(["DonationReceived", "MilestoneReleased", "PayoutRecorded"]);
+const HAS_AMOUNT: ReadonlySet<EventName> = new Set(["DonationReceived", "MilestoneReleased", "PayoutRecorded", "RefundClaimed"]);
 
 function contractLabel(row: ChainEventRow, known: KnownContracts): string {
   const at = row.contractAddress.toLowerCase();
@@ -141,6 +146,10 @@ export function describeEvent(
       return `A beneficiary was registered${camp}. Only an anonymous fingerprint is stored, never their identity.`;
     case "PayoutRecorded":
       return `${amt} was paid to a registered beneficiary for ${ms}${camp}.`;
+    case "CampaignClosed":
+      return `The campaign was closed${camp}: donors can now take back their share of what was still held.`;
+    case "RefundClaimed":
+      return `${amt} was refunded to donor ${who}${camp}.`;
   }
 }
 

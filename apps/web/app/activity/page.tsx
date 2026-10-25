@@ -27,6 +27,8 @@ const BADGE: Record<string, string> = {
   MilestoneReleased: MONEY_OUT,
   BeneficiaryRegistered: NEUTRAL,
   PayoutRecorded: MONEY_OUT,
+  CampaignClosed: NEUTRAL,
+  RefundClaimed: MONEY_OUT,
 };
 
 /** The life of a rupee in four counts, using the same words as the stage rail. */

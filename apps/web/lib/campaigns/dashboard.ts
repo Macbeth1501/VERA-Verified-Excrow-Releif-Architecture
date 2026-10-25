@@ -23,6 +23,8 @@ export interface DashboardData {
     totalDonatedMinorUnits: string;
     /** Paid out to the organizer through released milestones. */
     totalReleasedMinorUnits: string;
+    /** Refunded to donors after the campaign closed. */
+    totalRefundedMinorUnits: string;
     donationCount: number;
     /** Progress toward the goal in basis points (10000 = 100%); may exceed 10000. */
     goalReachedBps: number;
@@ -41,6 +43,8 @@ export interface DashboardData {
   payouts: { entries: PayoutEntry[]; totalMinorUnits: string; contract: string | null };
   milestones: CampaignWithMilestones["milestones"];
   ledger: LedgerEntry[];
+  /** The campaign's end date, inactivity rule and refund state; `enabled` is false for campaigns published before expiry existed. */
+  expiry: ExpiryInfo;
   indexer: {
     configured: boolean;
     dataAsOfBlock: number | null;
@@ -61,6 +65,62 @@ export interface DashboardData {
     reason?: UnavailableReason;
   };
   generatedAt: string;
+}
+
+export interface ExpiryInfo {
+  /** False for campaigns whose vault has no deadline (published before expiry existed): nothing below applies. */
+  enabled: boolean;
+  /** open: taking donations; ended: past the deadline but not yet closed; closed: refunds are open. */
+  state: "open" | "ended" | "closed";
+  deadlineAt: string | null;
+  inactivityDays: number;
+  /** When the campaign becomes closable for lack of progress: the last release (or publishing) plus the inactivity window. */
+  inactivityDeadlineAt: string | null;
+  /** Why anyone could close it right now, or null if it cannot be closed (yet, or already closed, or nothing is held). */
+  closableReason: "deadline" | "inactivity" | "completed" | null;
+  closed: { reason: "deadline" | "inactivity" | "completed"; refundPool: string; timestamp: string } | null;
+  refundCount: number;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Derives the expiry picture from the campaign's record and the indexed events, mirroring the vault's
+ * own rules (the contract is the authority: a close request that is not yet allowed is refused there).
+ */
+export function buildExpiry(
+  campaign: CampaignWithMilestones,
+  totals: ReturnType<typeof vaultTotals>,
+  ledger: LedgerEntry[],
+  now: Date,
+): ExpiryInfo {
+  if (!campaign.deadlineAt) {
+    return { enabled: false, state: "open", deadlineAt: null, inactivityDays: campaign.inactivityDays, inactivityDeadlineAt: null, closableReason: null, closed: null, refundCount: 0 };
+  }
+  const deadline = new Date(campaign.deadlineAt);
+  const published = new Date(deadline.getTime() - campaign.durationDays * DAY_MS);
+  const releases = ledger.filter((e) => e.type === "MilestoneReleased");
+  const lastProgress = releases.reduce((latest, e) => (new Date(e.timestamp) > latest ? new Date(e.timestamp) : latest), published);
+  const inactivityDeadline = new Date(lastProgress.getTime() + campaign.inactivityDays * DAY_MS);
+  const allReleased = campaign.milestones.length > 0 && releases.length >= campaign.milestones.length;
+  const held = BigInt(totals.balance) > 0n;
+
+  let closableReason: ExpiryInfo["closableReason"] = null;
+  if (!totals.closed && held) {
+    if (allReleased) closableReason = "completed";
+    else if (now > deadline) closableReason = "deadline";
+    else if (now > inactivityDeadline) closableReason = "inactivity";
+  }
+  return {
+    enabled: true,
+    state: totals.closed ? "closed" : now > deadline ? "ended" : "open",
+    deadlineAt: deadline.toISOString(),
+    inactivityDays: campaign.inactivityDays,
+    inactivityDeadlineAt: inactivityDeadline.toISOString(),
+    closableReason,
+    closed: totals.closed ? { reason: totals.closed.reason, refundPool: totals.closed.refundPool, timestamp: totals.closed.timestamp } : null,
+    refundCount: totals.refundCount,
+  };
 }
 
 /** Why the chain comparison failed: the node no longer keeps state that old, no node answered, or something else. */
@@ -87,6 +147,7 @@ export async function buildDashboard(
   db: Db,
   runtime: IndexerRuntime | null,
   campaignId: string,
+  now: Date = new Date(),
 ): Promise<DashboardData | null> {
   const campaign = getCampaign(db, campaignId);
   if (!campaign || campaign.status !== "LIVE" || !campaign.vaultContractAddress) return null;
@@ -117,6 +178,7 @@ export async function buildDashboard(
   }
 
   const organizer = getPublicProfile(db, campaign.organizerProfileId);
+  const ledger = vaultLedger(db, vault);
   return {
     campaign: {
       id: campaign.id,
@@ -134,6 +196,7 @@ export async function buildDashboard(
     escrow: {
       heldMinorUnits: totals.balance,
       totalReleasedMinorUnits: totals.totalReleased,
+      totalRefundedMinorUnits: totals.totalRefunded,
       totalDonatedMinorUnits: donated.toString(),
       donationCount: totals.donationCount,
       goalReachedBps: goalReachedBps(donated, BigInt(campaign.fundingGoalMinorUnits)),
@@ -141,7 +204,8 @@ export async function buildDashboard(
     beneficiaries: { uniqueCount: totals.beneficiaryCount, registry: runtime?.registryAddress ?? null },
     payouts: { entries: vaultPayouts(db, vault), totalMinorUnits: totals.totalPaidOut, contract: runtime?.disbursementAddress ?? null },
     milestones: campaign.milestones,
-    ledger: vaultLedger(db, vault),
+    ledger,
+    expiry: buildExpiry(campaign, totals, ledger, now),
     indexer: {
       configured: runtime !== null,
       dataAsOfBlock: status.indexedThroughBlock,
@@ -150,6 +214,6 @@ export async function buildDashboard(
       freshness: freshness(runtime !== null, status.lagBlocks),
     },
     reconciliation,
-    generatedAt: new Date().toISOString(),
+    generatedAt: now.toISOString(),
   };
 }

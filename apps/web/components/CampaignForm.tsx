@@ -4,7 +4,13 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { CAMPAIGN_CATEGORIES, CATEGORY_LABEL, ceilingFor, type CampaignCategory } from "@/lib/campaigns/ceilings";
 import { rupeesToMinorUnits } from "@/lib/campaigns/money";
-import { createCampaignSchema, REQUIRED_MILESTONE_TOTAL, sumPct } from "@/lib/campaigns/validation";
+import {
+  createCampaignSchema,
+  DEFAULT_DURATION_DAYS,
+  DEFAULT_INACTIVITY_DAYS,
+  REQUIRED_MILESTONE_TOTAL,
+  sumPct,
+} from "@/lib/campaigns/validation";
 
 type FieldErrors = Record<string, string[] | undefined>;
 
@@ -27,6 +33,8 @@ export function CampaignForm() {
   const [category, setCategory] = useState<CampaignCategory>("DISASTER_RELIEF");
   const [goal, setGoal] = useState("");
   const [adminCap, setAdminCap] = useState("10");
+  const [durationDays, setDurationDays] = useState(String(DEFAULT_DURATION_DAYS));
+  const [inactivityDays, setInactivityDays] = useState(String(DEFAULT_INACTIVITY_DAYS));
   const [rows, setRows] = useState<MilestoneDraft[]>([{ ...blankMilestone }]);
   const [busy, setBusy] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -43,6 +51,8 @@ export function CampaignForm() {
       category,
       fundingGoalMinorUnits: rupeesToMinorUnits(goal) ?? "",
       adminExpenseCapPct: Number(adminCap),
+      durationDays: Number(durationDays),
+      inactivityDays: Number(inactivityDays),
       milestones: rows.map((r) => ({
         description: r.description.trim(),
         targetPct: Number(r.targetPct),
@@ -167,6 +177,34 @@ export function CampaignForm() {
         </p>
         {messages("adminExpenseCapPct")}
       </div>
+
+      <fieldset>
+        <legend className="w-full border-b border-rule pb-3 font-display text-2xl font-semibold text-ink">When donors get their money back</legend>
+        <p className="mt-3 max-w-[62ch] text-sm text-sand">
+          A campaign cannot hold money forever. If the end date passes, or no milestone is released for the stalled
+          period, anyone can close the campaign and every donor can take back their share of whatever is still held.
+          Money already released to you is never taken back. The same applies if every milestone is released and
+          money is left over. The contract enforces this.
+        </p>
+        <div className="mt-4 grid gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="durationDays" className={labelClass}>
+              Campaign runs for (days)
+            </label>
+            <input id="durationDays" inputMode="numeric" value={durationDays} onChange={(e) => setDurationDays(e.target.value)} className={inputClass} />
+            <p className="mt-1 text-sm text-dim">Donations close after this, counted from publishing.</p>
+            {messages("durationDays")}
+          </div>
+          <div>
+            <label htmlFor="inactivityDays" className={labelClass}>
+              Refund if no progress for (days)
+            </label>
+            <input id="inactivityDays" inputMode="numeric" value={inactivityDays} onChange={(e) => setInactivityDays(e.target.value)} className={inputClass} />
+            <p className="mt-1 text-sm text-dim">Counted from publishing, then from each released milestone.</p>
+            {messages("inactivityDays")}
+          </div>
+        </div>
+      </fieldset>
 
       <fieldset>
         <legend className="w-full border-b border-rule pb-3 font-display text-2xl font-semibold text-ink">Milestones</legend>

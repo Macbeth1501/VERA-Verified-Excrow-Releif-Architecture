@@ -44,6 +44,11 @@ export type ErrorCode =
   | "DOCUMENT_TYPE_NOT_ALLOWED"
   | "DOCUMENT_HASH_MISMATCH"
   | "DOCUMENT_NOT_FOUND"
+  | "EXPIRY_NOT_AVAILABLE"
+  | "EXPIRY_NOT_CONFIGURED"
+  | "NOT_CLOSED"
+  | "NO_REFUND_DUE"
+  | "NO_WALLET_KEY"
   | "INTERNAL_ERROR";
 
 export function apiError(

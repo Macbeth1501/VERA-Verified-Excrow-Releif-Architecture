@@ -9,6 +9,9 @@ const campaignCreated = parseAbiItem(
 const donationReceived = parseAbiItem(
   "event DonationReceived(address indexed donor, uint256 amount, uint256 newBalance)",
 );
+const campaignClosed = parseAbiItem("event CampaignClosed(uint8 reason, uint256 refundPool)");
+const refundClaimed = parseAbiItem("event RefundClaimed(address indexed donor, uint256 amount, uint256 newBalance)");
+const vaultEvents = [donationReceived, campaignClosed, refundClaimed] as const;
 const vaultAbi = parseAbi(["function getBalance() view returns (uint256)"]);
 const managerEvents = [
   parseAbiItem("event MilestoneDefined(address indexed vault, uint256 indexed index, uint256 targetPct, uint256 requiredAttestations, uint256 autoReleaseLimit)"),
@@ -78,23 +81,23 @@ export function createChainReader(
     async vaultEvents(vault, fromBlock, toBlock) {
       const logs = await client.getLogs({
         address: vault as `0x${string}`,
-        event: donationReceived,
+        events: vaultEvents,
         fromBlock: BigInt(fromBlock),
         toBlock: BigInt(toBlock),
       });
-      return logs.map<RawEvent>((log) => ({
-        name: "DonationReceived",
-        contract: log.address,
-        vault: log.address,
-        blockNumber: Number(log.blockNumber),
-        txHash: log.transactionHash,
-        logIndex: log.logIndex,
-        args: {
-          donor: log.args.donor ?? "",
-          amount: String(log.args.amount),
-          newBalance: String(log.args.newBalance),
-        },
-      }));
+      // Vaults published before expiry existed only ever emit DonationReceived.
+      return logs.map<RawEvent>((log) => {
+        const args = (log.args ?? {}) as Record<string, unknown>;
+        return {
+          name: log.eventName,
+          contract: log.address,
+          vault: log.address,
+          blockNumber: Number(log.blockNumber),
+          txHash: log.transactionHash,
+          logIndex: log.logIndex,
+          args: Object.fromEntries(Object.entries(args).map(([k, v]) => [k, String(v)])),
+        };
+      });
     },
 
     async managerEvents(fromBlock, toBlock) {

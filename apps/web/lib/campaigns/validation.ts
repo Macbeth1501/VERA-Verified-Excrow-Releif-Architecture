@@ -4,6 +4,10 @@ import { CAMPAIGN_CATEGORIES, CATEGORY_LABEL, ceilingFor, type CampaignCategory 
 /** Milestone percentages must total exactly this (FR-CMP-01). */
 export const REQUIRED_MILESTONE_TOTAL = 100;
 export const MAX_MILESTONES = 10;
+/** Matches CampaignFactory.MAX_DEADLINE (three years). */
+export const MAX_SCHEDULE_DAYS = 1095;
+export const DEFAULT_DURATION_DAYS = 90;
+export const DEFAULT_INACTIVITY_DAYS = 30;
 
 const milestoneSchema = z.object({
   description: z.string().trim().min(3, "Describe what this milestone delivers").max(300),
@@ -28,6 +32,20 @@ const baseSchema = z.object({
     .string()
     .regex(/^[1-9][0-9]{0,17}$/, "Enter a funding goal greater than zero"),
   adminExpenseCapPct: z.number().int("Use a whole percentage").min(0).max(100),
+  /** Days donations stay open after publishing; when it ends, money not yet released goes back to donors. */
+  durationDays: z
+    .number()
+    .int("Use whole days")
+    .min(1, "The campaign must run for at least 1 day")
+    .max(MAX_SCHEDULE_DAYS, `At most ${MAX_SCHEDULE_DAYS} days (three years)`)
+    .default(DEFAULT_DURATION_DAYS),
+  /** Days without a verified-and-released milestone before donors can be refunded. */
+  inactivityDays: z
+    .number()
+    .int("Use whole days")
+    .min(1, "Allow at least 1 day")
+    .max(MAX_SCHEDULE_DAYS, `At most ${MAX_SCHEDULE_DAYS} days (three years)`)
+    .default(DEFAULT_INACTIVITY_DAYS),
   milestones: z
     .array(milestoneSchema)
     .min(1, "Add at least one milestone")

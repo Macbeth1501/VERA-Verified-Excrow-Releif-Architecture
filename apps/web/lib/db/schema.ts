@@ -105,6 +105,15 @@ export const campaigns = sqliteTable("campaigns", {
   category: text("category", { enum: ["DISASTER_RELIEF", "MEDICAL", "COMMUNITY"] }).notNull(),
   fundingGoal: text("funding_goal").notNull(),
   adminExpenseCapPct: integer("admin_expense_cap_pct").notNull(),
+  /** How long donations are open, counted from publishing (becomes the vault's on-chain deadline). */
+  durationDays: integer("duration_days").notNull().default(90),
+  /** Days without a milestone release after which anyone may close the campaign and refund donors. */
+  inactivityDays: integer("inactivity_days").notNull().default(30),
+  /**
+   * The deadline the vault was published with (ISO). Null for campaigns published before expiry
+   * existed: those vaults have no deadline and can never refund.
+   */
+  deadlineAt: text("deadline_at"),
   /** Null until the on-chain vault deploy succeeds. */
   vaultContractAddress: text("vault_contract_address"),
   /** Campaign id assigned by CampaignFactory, null until deployed. */
@@ -173,6 +182,8 @@ export const chainEvents = sqliteTable("chain_events", {
       "MilestoneReleased",
       "BeneficiaryRegistered",
       "PayoutRecorded",
+      "CampaignClosed",
+      "RefundClaimed",
     ],
   }).notNull(),
   /** Contract that emitted the event. */

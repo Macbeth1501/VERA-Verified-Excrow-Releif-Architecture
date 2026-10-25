@@ -36,6 +36,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     fundingGoalMinorUnits: campaign.fundingGoalMinorUnits,
     adminExpenseCapPct: campaign.adminExpenseCapPct,
     milestonePcts: campaign.milestones.map((m) => m.targetPct),
+    durationDays: campaign.durationDays,
+    inactivityDays: campaign.inactivityDays,
   });
   return Response.json({ campaign: recordVaultDeploy(db, id, result) });
 }

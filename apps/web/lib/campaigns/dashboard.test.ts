@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { goalReachedBps } from "./dashboard";
+import { buildExpiry, goalReachedBps } from "./dashboard";
+import type { CampaignWithMilestones } from "./service";
+import type { LedgerEntry, VaultTotals } from "../indexer/queries";
 import { csvField, exportFileName, ledgerToCsv, ledgerToJson } from "./export";
 import { freshness, LAG_WARNING_BLOCKS } from "../indexer/freshness";
 import type { DashboardData } from "./dashboard";
@@ -11,10 +13,11 @@ const data: DashboardData = {
   },
   organizer: { id: "o1", legalName: "Trust", jurisdiction: "India" },
   vault: "0x6590E3D9E42EDB7e8970b9348CE457b9a2f990F7",
-  escrow: { heldMinorUnits: "260000000", totalDonatedMinorUnits: "260000000", totalReleasedMinorUnits: "0", donationCount: 2, goalReachedBps: 2600 },
+  escrow: { heldMinorUnits: "260000000", totalDonatedMinorUnits: "260000000", totalReleasedMinorUnits: "0", totalRefundedMinorUnits: "0", donationCount: 2, goalReachedBps: 2600 },
   beneficiaries: { uniqueCount: 3, registry: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9" },
   payouts: { entries: [], totalMinorUnits: "0", contract: null },
   milestones: [],
+  expiry: { enabled: false, state: "open", deadlineAt: null, inactivityDays: 30, inactivityDeadlineAt: null, closableReason: null, closed: null, refundCount: 0 },
   ledger: [
     { id: "0xaaa:0", type: "CampaignCreated", milestoneIndex: null, blockNumber: 10, timestamp: "2026-09-19T04:30:22.000Z", txHash: "0xaaa", actor: "0xorg", amount: null },
     { id: "0xbbb:0", type: "DonationReceived", milestoneIndex: null, blockNumber: 20, timestamp: "2026-09-19T04:31:02.000Z", txHash: "0xbbb", actor: "0xdonor", amount: "250500000" },
@@ -102,5 +105,57 @@ describe("JSON export and file names", () => {
     expect(exportFileName("Flood relief for Assam!", "csv")).toBe("vera-flood-relief-for-assam-ledger.csv");
     expect(exportFileName("../../etc/passwd", "json")).toBe("vera-etc-passwd-ledger.json");
     expect(exportFileName("!!!", "csv")).toBe("vera-campaign-ledger.csv");
+  });
+});
+
+describe("buildExpiry", () => {
+  const PUBLISHED = new Date("2026-10-01T00:00:00.000Z");
+  const DEADLINE = "2026-12-30T00:00:00.000Z"; // 90 days after publishing
+  const campaign = (over: Partial<CampaignWithMilestones> = {}) =>
+    ({ deadlineAt: DEADLINE, durationDays: 90, inactivityDays: 30, milestones: [{}, {}], ...over }) as unknown as CampaignWithMilestones;
+  const totals = (over: Partial<VaultTotals> = {}) => ({ balance: "100", closed: null, refundCount: 0, ...over }) as VaultTotals;
+  const release = (iso: string): LedgerEntry => ({ id: iso, type: "MilestoneReleased", milestoneIndex: 0, blockNumber: 1, timestamp: iso, txHash: "0x", actor: "", amount: "1" });
+  const at = (iso: string) => new Date(iso);
+
+  it("is switched off for a campaign whose vault has no deadline", () => {
+    const e = buildExpiry(campaign({ deadlineAt: null }), totals(), [], PUBLISHED);
+    expect(e).toMatchObject({ enabled: false, closableReason: null, closed: null });
+  });
+
+  it("is open and not closable while within the deadline and the inactivity window", () => {
+    const e = buildExpiry(campaign(), totals(), [], at("2026-10-20T00:00:00.000Z"));
+    expect(e).toMatchObject({ enabled: true, state: "open", closableReason: null, deadlineAt: DEADLINE });
+    expect(e.inactivityDeadlineAt).toBe("2026-10-31T00:00:00.000Z");
+  });
+
+  it("becomes closable for inactivity after 30 days without a release", () => {
+    expect(buildExpiry(campaign(), totals(), [], at("2026-10-31T00:00:00.000Z")).closableReason).toBeNull(); // exactly at the window
+    expect(buildExpiry(campaign(), totals(), [], at("2026-10-31T00:00:01.000Z")).closableReason).toBe("inactivity");
+  });
+
+  it("restarts the inactivity clock at each release", () => {
+    const e = buildExpiry(campaign(), totals(), [release("2026-10-25T00:00:00.000Z")], at("2026-11-10T00:00:00.000Z"));
+    expect(e.closableReason).toBeNull();
+    expect(e.inactivityDeadlineAt).toBe("2026-11-24T00:00:00.000Z");
+  });
+
+  it("has ended, and is closable for the deadline, once the date passes (the deadline wins over inactivity)", () => {
+    const e = buildExpiry(campaign(), totals(), [], at("2027-01-05T00:00:00.000Z"));
+    expect(e).toMatchObject({ state: "ended", closableReason: "deadline" });
+  });
+
+  it("is closable as completed when every milestone is released and money is left", () => {
+    const rel = [release("2026-10-10T00:00:00.000Z"), release("2026-10-12T00:00:00.000Z")];
+    expect(buildExpiry(campaign(), totals(), rel, at("2026-10-13T00:00:00.000Z")).closableReason).toBe("completed");
+  });
+
+  it("is not closable when nothing is held, even past the deadline", () => {
+    expect(buildExpiry(campaign(), totals({ balance: "0" }), [], at("2027-02-01T00:00:00.000Z")).closableReason).toBeNull();
+  });
+
+  it("reports a closed campaign with its reason and pool, and offers no second close", () => {
+    const closed = { reason: "deadline" as const, refundPool: "100", blockNumber: 5, timestamp: "2027-01-06T00:00:00.000Z" };
+    const e = buildExpiry(campaign(), totals({ closed, refundCount: 2 }), [], at("2027-01-07T00:00:00.000Z"));
+    expect(e).toMatchObject({ state: "closed", closableReason: null, refundCount: 2, closed: { reason: "deadline", refundPool: "100" } });
   });
 });

@@ -5,7 +5,7 @@ import { indexerCursors } from "../db/schema";
 import { indexerStatus, reconcileVault, vaultLedger, vaultPayouts, vaultTotals } from "./queries";
 import { allCursors } from "./store";
 import { syncOnce } from "./sync";
-import { FakeChain, VAULT_A, VAULT_B, attested, beneficiary, created, donation, payout, released } from "./fake-chain";
+import { FakeChain, VAULT_A, VAULT_B, attested, beneficiary, closedEvent, created, donation, payout, refunded, released } from "./fake-chain";
 
 const config = { startBlock: 100, confirmations: 2, maxRange: 2000 };
 let db: Db;
@@ -381,5 +381,67 @@ describe("payout events (Step 14 Disbursement)", () => {
     db.delete(indexerCursors).where(eq(indexerCursors.stream, "disbursement")).run();
     await syncOnce(db, chain, withAll);
     expect(vaultTotals(db, VAULT_A).totalPaidOut).toBe("60000000");
+  });
+});
+
+describe("campaign expiry events (CampaignClosed, RefundClaimed)", () => {
+  const DONOR_B = "0x4444444444444444444444444444444444444444";
+
+  it("subtracts refunds from the vault balance and reconciles against the chain", async () => {
+    chain.events = [
+      created(VAULT_A, 150),
+      donation(VAULT_A, 200, "300000000"),
+      closedEvent(VAULT_A, 300, 0, "300000000"),
+      refunded(VAULT_A, 400, "225000000"),
+    ];
+    chain.balances.set(VAULT_A, { tracked: 75000000n, token: 75000000n });
+    await syncOnce(db, chain, config);
+
+    const totals = vaultTotals(db, VAULT_A);
+    expect(totals.totalDonated).toBe("300000000");
+    expect(totals.totalRefunded).toBe("225000000");
+    expect(totals.refundCount).toBe(1);
+    expect(totals.balance).toBe("75000000");
+    expect((await reconcileVault(db, chain, VAULT_A))?.match).toBe(true);
+  });
+
+  it("flags a refund the chain does not agree with, even by one unit", async () => {
+    chain.events = [created(VAULT_A, 150), donation(VAULT_A, 200, "300000000"), closedEvent(VAULT_A, 300, 0, "300000000"), refunded(VAULT_A, 400, "225000000")];
+    chain.balances.set(VAULT_A, { tracked: 75000001n, token: 75000000n });
+    await syncOnce(db, chain, config);
+    expect((await reconcileVault(db, chain, VAULT_A))?.match).toBe(false);
+  });
+
+  it("reports why and when the campaign closed, and the pool the donors share", async () => {
+    chain.events = [created(VAULT_A, 150), donation(VAULT_A, 200, "50"), closedEvent(VAULT_A, 300, 1, "50")];
+    await syncOnce(db, chain, config);
+    const closed = vaultTotals(db, VAULT_A).closed;
+    expect(closed).toMatchObject({ reason: "inactivity", refundPool: "50", blockNumber: 300 });
+    expect(vaultTotals(db, VAULT_B).closed).toBeNull();
+  });
+
+  it("names each close reason in the contract's order", async () => {
+    for (const [code, name] of [[0, "deadline"], [1, "inactivity"], [2, "completed"]] as const) {
+      const fresh = createDb(":memory:");
+      chain.events = [created(VAULT_A, 150), donation(VAULT_A, 200, "10"), closedEvent(VAULT_A, 300, code, "10")];
+      await syncOnce(fresh, chain, config);
+      expect(vaultTotals(fresh, VAULT_A).closed?.reason).toBe(name);
+    }
+  });
+
+  it("shows refunds in the ledger with the donor as the actor and the amount", async () => {
+    chain.events = [created(VAULT_A, 150), donation(VAULT_A, 200, "100"), closedEvent(VAULT_A, 300, 0, "100"), refunded(VAULT_A, 400, "60", DONOR_B)];
+    await syncOnce(db, chain, config);
+    const refund = vaultLedger(db, VAULT_A).find((e) => e.type === "RefundClaimed");
+    expect(refund).toMatchObject({ actor: DONOR_B, amount: "60", milestoneIndex: null });
+    expect(vaultLedger(db, VAULT_A).find((e) => e.type === "CampaignClosed")?.amount).toBeNull();
+  });
+
+  it("does not count a refund twice when read again", async () => {
+    chain.events = [created(VAULT_A, 150), donation(VAULT_A, 200, "100"), closedEvent(VAULT_A, 300, 0, "100"), refunded(VAULT_A, 400, "60")];
+    await syncOnce(db, chain, config);
+    db.delete(indexerCursors).where(eq(indexerCursors.stream, `vault:${VAULT_A}`)).run();
+    await syncOnce(db, chain, config);
+    expect(vaultTotals(db, VAULT_A).totalRefunded).toBe("60");
   });
 });

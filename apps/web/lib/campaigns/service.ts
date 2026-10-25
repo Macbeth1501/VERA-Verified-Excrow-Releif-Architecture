@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { asc, desc, eq } from "drizzle-orm";
 import type { Db } from "../db";
 import { campaigns, milestones, organizerProfiles, type CampaignRow, type MilestoneRow } from "../db/schema";
-import type { CreateCampaignInput } from "./validation";
+import { DEFAULT_DURATION_DAYS, DEFAULT_INACTIVITY_DAYS, type CreateCampaignInput } from "./validation";
+
+/** What the service accepts: the schedule is optional so older callers keep the defaults. */
+export type NewCampaign = Omit<CreateCampaignInput, "durationDays" | "inactivityDays"> &
+  Partial<Pick<CreateCampaignInput, "durationDays" | "inactivityDays">>;
 
 export type ChainStatus = CampaignRow["chainStatus"];
 
@@ -11,6 +15,8 @@ export interface VaultDeployResult {
   vaultAddress?: string;
   onchainCampaignId?: number;
   txHash?: string;
+  /** ISO time of the deadline written into the vault. */
+  deadlineAt?: string;
   error?: string;
 }
 
@@ -23,6 +29,10 @@ export interface CampaignWithMilestones {
   /** mINR minor units (6 decimals) as a string, per SPDD §12.1. */
   fundingGoalMinorUnits: string;
   adminExpenseCapPct: number;
+  durationDays: number;
+  inactivityDays: number;
+  /** The deadline the vault was published with; null for campaigns published before expiry existed. */
+  deadlineAt: string | null;
   vaultContractAddress: string | null;
   onchainCampaignId: number | null;
   status: CampaignRow["status"];
@@ -58,6 +68,9 @@ function toCampaign(row: CampaignRow, milestoneRows: MilestoneRow[]): CampaignWi
     category: row.category,
     fundingGoalMinorUnits: row.fundingGoal,
     adminExpenseCapPct: row.adminExpenseCapPct,
+    durationDays: row.durationDays,
+    inactivityDays: row.inactivityDays,
+    deadlineAt: row.deadlineAt,
     vaultContractAddress: row.vaultContractAddress,
     onchainCampaignId: row.onchainCampaignId,
     status: row.status,
@@ -87,7 +100,7 @@ function milestonesFor(db: Db, campaignId: string): MilestoneRow[] {
  * vault address: it only becomes LIVE once CampaignFactory has deployed its vault
  * (`recordVaultDeploy`), so a campaign can never appear fundable without real escrow behind it.
  */
-export function createCampaign(db: Db, organizerProfileId: string, input: CreateCampaignInput): CampaignWithMilestones {
+export function createCampaign(db: Db, organizerProfileId: string, input: NewCampaign): CampaignWithMilestones {
   const id = randomUUID();
   db.transaction((tx) => {
     tx.insert(campaigns)
@@ -99,6 +112,8 @@ export function createCampaign(db: Db, organizerProfileId: string, input: Create
         category: input.category,
         fundingGoal: input.fundingGoalMinorUnits,
         adminExpenseCapPct: input.adminExpenseCapPct,
+        durationDays: input.durationDays ?? DEFAULT_DURATION_DAYS,
+        inactivityDays: input.inactivityDays ?? DEFAULT_INACTIVITY_DAYS,
         status: "DRAFT",
         chainStatus: "pending",
       })
@@ -165,6 +180,7 @@ export function recordVaultDeploy(db: Db, campaignId: string, result: VaultDeplo
         ? {
             vaultContractAddress: result.vaultAddress ?? null,
             onchainCampaignId: result.onchainCampaignId ?? null,
+            deadlineAt: result.deadlineAt ?? null,
             status: "LIVE" as const,
           }
         : {}),

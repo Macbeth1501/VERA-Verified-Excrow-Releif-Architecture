@@ -24,6 +24,27 @@ describe("createCampaignSchema", () => {
     expect(createCampaignSchema.safeParse(valid).success).toBe(true);
   });
 
+  describe("expiry schedule", () => {
+    it("defaults to 90 days open and 30 days without progress", () => {
+      const parsed = createCampaignSchema.parse(valid);
+      expect(parsed.durationDays).toBe(90);
+      expect(parsed.inactivityDays).toBe(30);
+    });
+
+    it("accepts a custom schedule up to three years", () => {
+      const parsed = createCampaignSchema.parse({ ...valid, durationDays: 1095, inactivityDays: 1 });
+      expect(parsed.durationDays).toBe(1095);
+      expect(parsed.inactivityDays).toBe(1);
+    });
+
+    it("rejects zero, fractional and too-long periods, naming the field", () => {
+      expect(errorsFor({ ...valid, durationDays: 0 }).durationDays?.[0]).toContain("at least 1 day");
+      expect(errorsFor({ ...valid, durationDays: 1096 }).durationDays?.[0]).toContain("three years");
+      expect(errorsFor({ ...valid, inactivityDays: 0 }).inactivityDays?.[0]).toContain("at least 1 day");
+      expect(errorsFor({ ...valid, inactivityDays: 2.5 }).inactivityDays?.[0]).toContain("whole days");
+    });
+  });
+
   // FR-CMP-01 acceptance criterion: 90% and 110% must be refused.
   it("rejects milestones totalling 90% or 110%, and says the actual total", () => {
     const under = errorsFor({ ...valid, milestones: [{ ...valid.milestones[0], targetPct: 50 }, valid.milestones[1]] });

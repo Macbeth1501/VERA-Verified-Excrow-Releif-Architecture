@@ -103,6 +103,8 @@ export function createDonation(
 ): DonationView {
   const campaign = getCampaign(db, input.campaignId);
   if (!campaign || campaign.status !== "LIVE" || !campaign.vaultContractAddress) throw new CampaignNotOpenError();
+  // The vault refuses deposits after its deadline; refusing here saves the donor a failed transaction.
+  if (campaign.deadlineAt && Date.now() > new Date(campaign.deadlineAt).getTime()) throw new CampaignNotOpenError();
 
   const donor = db.select().from(users).where(eq(users.id, input.userId)).get();
   if (!donor || donor.walletType !== "generated" || !donor.walletKeyEnc) throw new WalletNotManagedError();

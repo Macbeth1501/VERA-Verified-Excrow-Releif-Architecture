@@ -2,6 +2,8 @@
 export type EventName =
   | "CampaignCreated"
   | "DonationReceived"
+  | "CampaignClosed"
+  | "RefundClaimed"
   | "MilestoneDefined"
   | "MilestoneAttested"
   | "MilestoneVerified"
@@ -30,7 +32,7 @@ export interface ChainReader {
   headBlock(): Promise<number>;
   /** CampaignCreated events from the CampaignFactory, inclusive block range. */
   factoryEvents(fromBlock: number, toBlock: number): Promise<RawEvent[]>;
-  /** DonationReceived events from one vault, inclusive block range. */
+  /** DonationReceived, CampaignClosed and RefundClaimed events from one vault, inclusive block range. */
   vaultEvents(vault: string, fromBlock: number, toBlock: number): Promise<RawEvent[]>;
   /**
    * All MilestoneManager events (every one names its vault), inclusive block range. Optional: a

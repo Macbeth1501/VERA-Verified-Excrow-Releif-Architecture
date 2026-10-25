@@ -9,14 +9,17 @@ import { gasPriceRefusal, topUpGas } from "./sponsor";
 
 export const factoryAbi = parseAbi([
   "struct MilestoneInput { uint256 targetPct; }",
-  "function createCampaign(uint8 category, uint256 fundingGoal, MilestoneInput[] milestones, uint256 adminCapPct) returns (uint256 campaignId, address vault)",
+  "function createCampaign(uint8 category, uint256 fundingGoal, MilestoneInput[] milestones, uint256 adminCapPct, uint64 deadline, uint64 inactivityWindow) returns (uint256 campaignId, address vault)",
   "function isVerifiedOrganizer(address organizer) view returns (bool)",
   "function categoryAdminCeilingPct(uint8 category) view returns (uint256)",
   "event CampaignCreated(uint256 indexed campaignId, address indexed organizer, address indexed vault, uint8 category, uint256 fundingGoal)",
 ]);
 
 /** Used only if gas estimation is refused (for example when the wallet has no POL at all). */
-const FALLBACK_GAS = 1_500_000n;
+const FALLBACK_GAS = 2_000_000n;
+
+/** The vault is a large contract to deploy (about 1.6M gas); never send with less than this. */
+const MIN_GAS_LIMIT = 2_200_000n;
 
 export interface DeployVaultParams {
   organizerAddress: string;
@@ -26,10 +29,24 @@ export interface DeployVaultParams {
   fundingGoalMinorUnits: string;
   adminExpenseCapPct: number;
   milestonePcts: number[];
+  /** Days donations stay open, counted from the moment of publishing. */
+  durationDays: number;
+  /** Days without a milestone release before donors can be refunded. */
+  inactivityDays: number;
 }
+
+const SECONDS_PER_DAY = 86_400n;
 
 function transport() {
   return fallback(parseRpcUrls(getEnv().RPC_URL).map((url) => http(url, { timeout: 20_000, retryCount: 1 })));
+}
+
+/** A viem error's first line can be empty of detail; add its short message and the node's own text. */
+function describeError(err: unknown): string {
+  if (!(err instanceof Error)) return "unknown error";
+  const e = err as Error & { shortMessage?: string; details?: string; cause?: { shortMessage?: string; details?: string } };
+  const parts = [e.shortMessage, e.cause?.shortMessage, e.details ?? e.cause?.details, e.message.split(/\r?\n/)[0]];
+  return [...new Set(parts.filter((p): p is string => !!p))].join(" | ").slice(0, 400);
 }
 
 const failed = (error: string): VaultDeployResult => ({ status: "failed", error });
@@ -81,11 +98,17 @@ export async function deployCampaignVault(params: DeployVaultParams): Promise<Va
       return failed("The stored wallet key does not match the organizer's address.");
     }
 
+    // The vault's deadline is counted from the chain's own clock, which is what the contract compares.
+    const latest = await publicClient.getBlock();
+    const deadline = latest.timestamp + BigInt(params.durationDays) * SECONDS_PER_DAY;
+
     const args = [
       categoryIndex,
       BigInt(params.fundingGoalMinorUnits),
       params.milestonePcts.map((targetPct) => ({ targetPct: BigInt(targetPct) })),
       BigInt(params.adminExpenseCapPct),
+      deadline,
+      BigInt(params.inactivityDays) * SECONDS_PER_DAY,
     ] as const;
 
     const gas = await publicClient
@@ -94,7 +117,8 @@ export async function deployCampaignVault(params: DeployVaultParams): Promise<Va
     const gasPrice = await publicClient.getGasPrice();
     const tooExpensive = gasPriceRefusal(gasPrice);
     if (tooExpensive) return failed(tooExpensive);
-    const funded = await topUpGas(organizer, (gas * gasPrice * 15n) / 10n, { wait: true });
+    const gasLimit = (gas * 14n) / 10n > MIN_GAS_LIMIT ? (gas * 14n) / 10n : MIN_GAS_LIMIT;
+    const funded = await topUpGas(organizer, (gasLimit * gasPrice * 15n) / 10n, { wait: true });
     if (!funded.ok) return failed(funded.error);
 
     const wallet = createWalletClient({ account, chain: polygonAmoy, transport: transport() });
@@ -103,7 +127,7 @@ export async function deployCampaignVault(params: DeployVaultParams): Promise<Va
       abi: factoryAbi,
       functionName: "createCampaign",
       args,
-      gas: (gas * 12n) / 10n,
+      gas: gasLimit,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 120_000 });
     if (receipt.status !== "success") return failed("The transaction was reverted by the contract.");
@@ -116,8 +140,9 @@ export async function deployCampaignVault(params: DeployVaultParams): Promise<Va
       vaultAddress: event.args.vault,
       onchainCampaignId: Number(event.args.campaignId),
       txHash,
+      deadlineAt: new Date(Number(deadline) * 1000).toISOString(),
     };
   } catch (err) {
-    return failed(err instanceof Error ? err.message.split("\n")[0].slice(0, 200) : "unknown error");
+    return failed(describeError(err));
   }
 }

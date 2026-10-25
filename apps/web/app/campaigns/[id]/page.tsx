@@ -27,7 +27,8 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
 
   const user = await getOptionalPageUser();
   let state: DonateState = "ready";
-  if (!user) state = "signed_out";
+  if (data.expiry.state !== "open") state = "closed";
+  else if (!user) state = "signed_out";
   else if (user.walletType !== "generated") state = "own_wallet";
   else if (!donationsConfigured()) state = "off";
 
@@ -39,5 +40,5 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
       feeMinorUnits={String(getEnv().PLATFORM_FEE_MINOR_UNITS)}
     />
   );
-  return <LedgerDashboard initial={data} donateSlot={donate} />;
+  return <LedgerDashboard initial={data} donateSlot={donate} signedIn={Boolean(user)} />;
 }
