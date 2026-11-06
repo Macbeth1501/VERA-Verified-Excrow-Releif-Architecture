@@ -1,0 +1,11 @@
+Executing previous transactions from the block.
+Traces:
+  [1538843] 0xcBA47322e213107C19Be706e6817629744A42364::createCampaign(2, 500000000 [5e8], [(40), (60)], 10, 1800737297 [1.8e9], 2592000 [2.592e6])
+    ├─ [1355705] → new <unknown>@0x6326000CCaEd562fc4787b8D9aF8fDA13479Fa5f
+    │   └─ ← [Return] 6541 bytes of code
+    ├─ emit CampaignCreated(campaignId: 0, organizer: 0xf431071F66Dc4795BeD532D1E6C4d4b834E0045B, vault: 0x6326000CCaEd562fc4787b8D9aF8fDA13479Fa5f, category: 2, fundingGoal: 500000000 [5e8])
+    └─ ← [Return] 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000006326000ccaed562fc4787b8d9af8fda13479fa5f
+
+
+Transaction successfully executed.
+Gas used: 1561239

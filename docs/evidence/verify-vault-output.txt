@@ -1,0 +1,32 @@
+chain id             80002
+vault                0x6326000CCaEd562fc4787b8D9aF8fDA13479Fa5f
+log range            51138740 .. 52121465 (latest 52121465)
+rpc endpoints        https://polygon-amoy.drpc.org, https://polygon-amoy-bor-rpc.publicnode.com, https://polygon-amoy.gateway.tenderly.co
+token (from vault)   0x9b6f00a1ce627a3e0d2da601253704084d8fc52c
+manager (from vault) 0xe6d7222dde3ee4b9688269427631adf49229e747
+
+DonationReceived
+  block 51139137  0x0a76a89fc7d457ee2ad9e93ba4a13415e85653639ddd722d7f816d11c4bf54ad  donor 0xb1872469a3f1fc56945b293533ed53e8f53835d8  +250000000 (250 mINR)
+MilestoneReleased
+  block 51139510  0x3e85c1e994e76440dfd6b6347dbd582379438aac37983e4b692ca1c28e82844e  milestone 0  -100000000 (100 mINR)
+  block 51139917  0x565f49dbefef6debcadaf6a7b6aaf50e1cd3c85e96a5ac8cad0104b2f332e60c  milestone 1  -150000000 (150 mINR)
+RefundClaimed
+  (none)
+PayoutRecorded (information only, does not change the vault balance)
+  block 51140084  0x83eab522754ca699ede5454f79438a633435b0933e09cbf01b95c26d35fdf6c9  milestone 0  recorded 100000000 (100 mINR)
+  block 51140117  0xc2ab82d589829fd2bc34a2fb123fbffbade67d0e41f57ac15799232a975ecd4d  milestone 1  recorded 100000000 (100 mINR)
+
+Summary
+  donated              250000000 (250 mINR)  (1 events, 1 donors)
+  released             250000000 (250 mINR)  (2 events)
+  refunded             0 (0 mINR)  (0 events)
+  paid out (recorded)  200000000 (200 mINR)  (2 events)
+  campaign closed      false
+  rebuilt from logs    0 (0 mINR)
+  vault getBalance()   0 (0 mINR)
+  token balanceOf()    0 (0 mINR)
+
+rebuilt == getBalance()  MATCH
+rebuilt == balanceOf()   MATCH
+
+RESULT: verified, zero difference

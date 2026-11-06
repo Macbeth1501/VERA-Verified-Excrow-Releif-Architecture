@@ -389,7 +389,7 @@ From the repository root:
 
 ```bash
 pnpm test                      # contract tests: 94 passing (fuzz at 10,000 runs)
-pnpm test:web                  # web tests against simulated chains: 397 passing, 3 skipped (the 3 are the opt-in live tests)
+pnpm test:web                  # web tests against simulated chains: 497 passing, 6 skipped (the 6 are the opt-in live tests)
 cd apps/web && npx tsc --noEmit && npx eslint . && cd ../..    # should print nothing
 pnpm build                     # production build; stop pnpm dev first
 ```

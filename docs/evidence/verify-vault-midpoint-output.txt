@@ -1,0 +1,15 @@
+### Same script pinned to block 51139600 (after the donation and milestone 1 release, before milestone 2)
+Summary
+  donated              250000000 (250 mINR)  (1 events, 1 donors)
+  released             100000000 (100 mINR)  (1 events)
+  refunded             0 (0 mINR)  (0 events)
+  paid out (recorded)  0 (0 mINR)  (0 events)
+  campaign closed      false
+  rebuilt from logs    150000000 (150 mINR)
+  vault getBalance()   150000000 (150 mINR)
+  token balanceOf()    150000000 (150 mINR)
+
+rebuilt == getBalance()  MATCH
+rebuilt == balanceOf()   MATCH
+
+RESULT: verified, zero difference

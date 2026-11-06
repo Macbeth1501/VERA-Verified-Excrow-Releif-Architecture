@@ -1,0 +1,65 @@
+'forge clean' running (wd: C:\Users\Rochan\Desktop\Coding\Projects\vera-mvp\contracts)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: C:\Users\Rochan\Desktop\Coding\Projects\vera-mvp\contracts)
+INFO:Detectors:
+Detector: uninitialized-local
+CampaignFactory.createCampaign(CampaignFactory.CampaignCategory,uint256,CampaignFactory.MilestoneInput[],uint256,uint64,uint64).sum (src/CampaignFactory.sol#139) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+INFO:Detectors:
+Detector: events-maths
+CampaignVault.releaseForMilestone(address,uint256) (src/CampaignVault.sol#166-177) should emit an event for: 
+	- _balance -= amount (src/CampaignVault.sol#174) 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-arithmetic
+INFO:Detectors:
+Detector: missing-zero-check
+CampaignFactory.constructor(address)._mockToken (src/CampaignFactory.sol#91) lacks a zero-check on :
+		- mockToken = _mockToken (src/CampaignFactory.sol#92)
+CampaignVault.constructor(address,address,address,uint64,uint64)._organizer (src/CampaignVault.sol#122) lacks a zero-check on :
+		- organizer = _organizer (src/CampaignVault.sol#126)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
+INFO:Detectors:
+Detector: timestamp
+CampaignFactory.createCampaign(CampaignFactory.CampaignCategory,uint256,CampaignFactory.MilestoneInput[],uint256,uint64,uint64) (src/CampaignFactory.sol#124-165) uses timestamp for comparisons
+	Dangerous comparisons:
+	- deadline <= block.timestamp || deadline > block.timestamp + MAX_DEADLINE (src/CampaignFactory.sol#145)
+CampaignVault.constructor(address,address,address,uint64,uint64) (src/CampaignVault.sol#122-132) uses timestamp for comparisons
+	Dangerous comparisons:
+	- _deadline <= block.timestamp || _inactivityWindow == 0 (src/CampaignVault.sol#124)
+CampaignVault.deposit(uint256) (src/CampaignVault.sol#138-153) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp > deadline (src/CampaignVault.sol#141)
+CampaignVault.closableReason() (src/CampaignVault.sol#184-190) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp > deadline (src/CampaignVault.sol#187)
+	- block.timestamp > uint256(lastProgressAt) + inactivityWindow (src/CampaignVault.sol#188)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Detectors:
+Detector: pragma
+5 different versions of Solidity are used:
+	- Version constraint ^0.8.20 is used by:
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/access/Ownable.sol#2-4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol#2-4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#2-4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Context.sol#2-4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol#2-4)
+		-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol#3-5)
+	- Version constraint >=0.6.2 is used by:
+		->=0.6.2 (lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol#2-4)
+		->=0.6.2 (lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol#2-4)
+		->=0.6.2 (lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol#2-4)
+	- Version constraint >=0.4.16 is used by:
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol#2-4)
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol#2-4)
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol#2-4)
+		->=0.4.16 (lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol#2-4)
+	- Version constraint >=0.8.4 is used by:
+		->=0.8.4 (lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol#2-4)
+	- Version constraint ^0.8.24 is used by:
+		-^0.8.24 (src/BeneficiaryRegistry.sol#2)
+		-^0.8.24 (src/CampaignFactory.sol#2)
+		-^0.8.24 (src/CampaignVault.sol#2)
+		-^0.8.24 (src/Disbursement.sol#2)
+		-^0.8.24 (src/MilestoneManager.sol#2)
+		-^0.8.24 (src/MockINR.sol#2)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#different-pragma-directives-are-used
+INFO:Slither:. analyzed (25 contracts with 102 detectors), 9 result(s) found

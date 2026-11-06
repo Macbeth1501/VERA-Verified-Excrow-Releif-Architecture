@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminReviewList } from "@/components/AdminReviewList";
@@ -53,6 +54,11 @@ export default async function AdminPage() {
         title="Admin console"
         lead="Review organizer applications and appoint the attestors and council members who keep releases honest."
       />
+      <p className="mt-6">
+        <Link href="/dashboard/admin/users" className="text-sand underline hover:text-copper" data-testid="users-link">
+          See all registered users and their email addresses &rarr;
+        </Link>
+      </p>
       <section className="mt-12" aria-labelledby="applications-heading">
         <h2 id="applications-heading" className="border-b border-rule pb-3 text-2xl text-ink">
           Organizer applications

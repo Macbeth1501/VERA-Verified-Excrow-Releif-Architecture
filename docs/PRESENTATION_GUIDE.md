@@ -79,15 +79,15 @@ Group them like this when explaining:
 | `foundry.toml` | Foundry config. `src="src"`, `out="out"`, `libs=["lib"]`. `[fuzz] runs = 10000`: every fuzz test runs 10,000 random inputs. |
 | `remappings.txt` | Maps import names like `@openzeppelin/contracts/` to `lib/openzeppelin-contracts/contracts/`. |
 | `package.json` | Lets pnpm run `forge test` through the workspace. |
-| `src/` | The 6 contracts (below). |
+| `src/` | The 6 original contracts (below) plus the 2 V2 contracts (section 3.8b). |
 | `script/Deploy.s.sol` | A deploy script (deploys MockINR and CampaignFactory). |
-| `test/` | 7 test files, 94 tests in all. |
+| `test/` | 9 test files, 122 tests in all. |
 | `lib/` | Vendored dependencies: `forge-std` (test helpers) and OpenZeppelin v5. |
 | `out/`, `cache/` | Build output (generated). |
 | `broadcast/` | Records of real deployments made by `forge script`. |
 | `FETCH_HEAD` | Stray git file; ignore. |
 
-### 3.2 How the six contracts fit together
+### 3.2 How the six original contracts fit together (the V2 pair replaces the registry and Disbursement, see 3.8b)
 
 ```
 MockINR (token) ──holds funds──> CampaignVault (one per campaign)
@@ -208,7 +208,7 @@ Functions:
 - **Why:** the first registry proves a beneficiary is **unique**, not that they **exist**. An organizer could register people who do not exist and record payouts to them. The app-level fix (an attestor must confirm each beneficiary) can be bypassed by anyone calling the contract directly.
 - `BeneficiaryRegistryV2(manager, requiredAttestations)`: `register` is exactly as before; `attestBeneficiary(vault, identityHash)` is callable only by an attestor registered on the existing manager, never the vault's own organizer, only for a registered beneficiary, once per attestor. `isVerified` becomes true at the required number (at least 1). Event `BeneficiaryAttested`.
 - `DisbursementV2`: identical to `Disbursement`, but it checks `registry.isVerified` and reverts `BeneficiaryNotVerified`.
-- **Deployed on Amoy 2026-11-06:** registry `0xF1C72cF2D5722a837305424D1966BBBe7F73454a` (block 52128113), disbursement `0xba49F68CabB0389091B4767aedfFc90B182f7Bd2` (block 52128142). One real registration, on-chain attestation and payout was run through them on Amoy. **The running website is not switched over** (`.env.local` still uses the original two); the app supports them behind `BENEFICIARY_REGISTRY_V2=1`.
+- **Deployed on Amoy 2026-11-06:** registry `0xF1C72cF2D5722a837305424D1966BBBe7F73454a` (block 52128113), disbursement `0xba49F68CabB0389091B4767aedfFc90B182f7Bd2` (block 52128142). One real registration, on-chain attestation and payout was run through them on Amoy. **The running website was switched to them on 2026-11-06** (`.env.local`, with `BENEFICIARY_REGISTRY_V2=1`). Be upfront: the older live campaigns' payouts and beneficiaries are on the original contracts, so they no longer show on those campaigns' public pages; campaigns and beneficiaries created from now on use the V2 contracts end to end.
 - 28 tests including four fuzz tests at 10,000 runs; Slither found no medium or high issue.
 - **Not done, on purpose (C7):** per-campaign release limits and council thresholds need a new manager, Factory and Disbursement and a migration; it is rated 9/10 risk and is on hold.
 
@@ -425,7 +425,8 @@ A donation is **not** one request. Each step is a separate transaction and Amoy 
 | `/dashboard/organizer` | Apply for / view KYB status. |
 | `/dashboard/campaigns`, `/new`, `/[id]`, `/[id]/beneficiaries` | Organizer workspace: create, publish, define milestones, release, register beneficiaries, record payouts. |
 | `/dashboard/attestor`, `/dashboard/council` | Role consoles. |
-| `/dashboard/admin` | Review KYB applications (with document viewer) and grant attestor/council roles. |
+| `/dashboard/admin` | Review KYB applications (with document viewer), grant attestor/council roles, change the council approval limit and approvals needed. |
+| `/dashboard/admin/users` | Admin-only list of every registered account with its email, role, wallet and organizer status; search and role filter. |
 
 `layout.tsx` wraps everything: loads three Google fonts, renders `SiteNav`, a skip-to-content link, the content container, and a footer stating it is a testnet demo. `globals.css` holds the design tokens (colors, focus styles).
 
@@ -436,7 +437,7 @@ A donation is **not** one request. Each step is a separate transaction and Amoy 
 | Group | Routes |
 |---|---|
 | auth | `register`, `login`, `logout`, `me`, `session` |
-| organizers | `me`, `verify`, `[id]`; admin: `admin/organizers` (list, `decision`, `sync`), `admin/roles` |
+| organizers | `me`, `verify`, `[id]`; admin: `admin/organizers` (list, `decision`, `sync`), `admin/roles`, `admin/release-limit`, `admin/council-threshold`, `admin/users` |
 | campaigns | `campaigns` (list/create), `[id]`, `[id]/deploy`, `[id]/milestones/define`, `[id]/ledger`, `[id]/export`, `[id]/beneficiaries` (+ `salt`), `[id]/close`, `[id]/refund` |
 | donations | `donations`, `[id]`, `[id]/advance`, `[id]/retry` |
 | milestones | `[id]`, `[id]/attestations`, `[id]/council-approval`, `[id]/release`, `[id]/disburse` |
@@ -492,7 +493,7 @@ The `*.integration.test.ts` files call these route handlers directly against an 
 
 `docs/Technical_Details.md` contains a few statements that do not match the code. Do not repeat them on stage:
 1. **Section 7.1 title "Client-Side Custodial Wallet Security"**: the wallet is generated and encrypted **on the server** (`lib/auth/crypto.ts` uses Node's `crypto`). Say "server-side custodial wallet, key encrypted at rest with AES-256-GCM".
-2. **Section 4.2 describes Selenium testing.** There is no Selenium and no committed browser test suite. Say: unit and integration tests with fake chains (483 pass), plus a scripted real-browser check (Playwright driving Chromium, run by hand, not committed), plus manual walkthroughs and local-chain end-to-end tests. The doc itself admits this in its "Honest status" paragraph.
+2. **Section 4.2 describes Selenium testing.** There is no Selenium and no committed browser test suite. Say: unit and integration tests with fake chains (497 pass), plus a scripted real-browser check (Playwright driving Chromium, run by hand, not committed), plus manual walkthroughs and local-chain end-to-end tests. The doc itself admits this in its "Honest status" paragraph.
 3. `Deploy.s.sol` alone did not deploy everything on Amoy (only MockINR landed); the rest used `forge create`.
 
 Also be upfront about design limits: the testnet token has an open faucet; the platform holds users' wallet keys (custodial) and is the gas sponsor; attestors and council are chosen by the admin (a trusted set, not decentralized); Disbursement cannot force an organizer to hand money over; there is no wallet-connect yet, so external wallets cannot donate or publish.
@@ -503,7 +504,7 @@ Also be upfront about design limits: the testnet token has an open faucet; the p
 
 - **Can the organizer steal the money?** Not from the vault: no function lets the organizer withdraw. Only the immutable manager can release, and only for Verified milestones, in order. Once released, the funds are with the organizer; Disbursement then makes payouts publicly recorded, and the reconciler flags mismatches.
 - **What if attestors collude?** Needs at least 2 distinct attestors, the organizer can't be one, and releases over the limit also need 3 council approvals. (The limit and the number of approvals can be changed by the admin, never below 2; the limit is copied into each milestone when it is defined, so a change cannot loosen an existing one.)
-- **What if an organizer registers people who do not exist?** An independent attestor must confirm each beneficiary before a payout is allowed. In the running app that is an app and database rule; with the V2 contracts (deployed on Amoy, not yet switched on) the payout contract itself refuses it. Say which one you mean.
+- **What if an organizer registers people who do not exist?** An independent attestor must confirm each beneficiary before a payout is allowed. In the running app that is an app and database rule; with the V2 contracts (deployed on Amoy and switched on since 2026-11-06) the payout contract itself refuses it. Say which one you mean.
 - **Why not per-campaign limits?** That needs a new manager, Factory and Disbursement and re-registering every role (rated 9/10 risk), so it is on hold; the global limit and threshold are admin-controlled instead.
 - **What if the campaign stalls?** After the deadline or the inactivity window, anyone can `close()` it, and donors reclaim their pro-rata share.
 - **How do you prevent duplicate beneficiaries without storing identities?** Salted SHA-256 fingerprint made in the browser; unique per campaign in DB and on-chain.
@@ -512,7 +513,7 @@ Also be upfront about design limits: the testnet token has an open faucet; the p
 - **What happens to a donation if the browser closes mid-way?** The state machine is resumable; each tx hash is saved before waiting; the next advance call continues.
 - **What if gas spikes?** Sponsored actions refuse above 150 gwei.
 - **Are the contracts upgradeable?** No, deliberately immutable. That is why expiry required a new Factory.
-- **How was it tested?** 122 contract tests (including 10,000-run fuzzing), about 483 web tests with fake chains, Slither (0 high/medium), local-anvil end-to-end tests, and a real Amoy live test.
+- **How was it tested?** 122 contract tests (including 10,000-run fuzzing), about 497 web tests with fake chains, Slither (0 high/medium), local-anvil end-to-end tests, and a real Amoy live test.
 
 ---
 

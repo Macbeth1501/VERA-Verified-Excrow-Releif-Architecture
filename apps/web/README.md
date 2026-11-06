@@ -10,7 +10,8 @@ For what is built, what is next, and how everything fits together, read [`docs/P
 - **Organizers:** apply for verification, get approved by an admin, create campaigns with milestones, and publish each campaign to its own on-chain escrow vault. Each campaign has an end date and an inactivity period.
 - **Attestors and the council:** an admin makes accounts attestors or council members. Attestors confirm that a milestone is done by choosing the evidence, hashed in the browser (the hash is what goes on-chain) and uploaded, so an admin/attestor/council viewer can later open exactly what was reviewed. Council members approve large payouts. The organizer, a council member or an admin then triggers the release. Everything is sent from the person's own wallet and counted by the contract.
 - **Organizers (KYB):** the supporting document is likewise hashed and uploaded; an admin can open it from the admin console before approving.
-- **Beneficiaries and payouts:** the organizer registers each beneficiary as a salted fingerprint (their real identity never reaches the server), and, once a milestone is released, records a payout to one of them — publicly visible on the campaign page.
+- **Beneficiaries and payouts:** the organizer registers each beneficiary as a salted fingerprint (their real identity never reaches the server). An independent attestor who has met the person confirms they exist (again by fingerprint only, optionally with an evidence file). Once a milestone is released, the organizer can record a payout to a confirmed beneficiary: publicly visible on the campaign page. With the V2 contracts and `BENEFICIARY_REGISTRY_V2=1` the confirmation is also sent on-chain from the attestor's own wallet and the payout contract itself refuses an unconfirmed beneficiary.
+- **Admins:** review organizer applications, appoint attestors and council members, change the council approval limit (applies to campaigns published afterwards) and the number of council approvals needed (applies at once; never below 2), and see every registered account and its email address at `/dashboard/admin/users` (admin only).
 - **Everyone (no login):** browse campaigns and open a public audit page showing the money held in escrow, every donation, each milestone's confirmations, approvals, payouts to beneficiaries, and a check that the totals match the blockchain, with CSV/JSON download. A public **Chain activity** timeline lists every on-chain event with explorer links, and a **How VERA works** page explains the flow, who does what and the words used.
 
 ## Run it
@@ -38,6 +39,7 @@ The local SQLite database (`apps/web/data/`, gitignored) is created and migrated
 | `FACTORY_OWNER_KEY` | Optional. The Factory owner and gas sponsor; turns on organizer on-chain sync, campaign publishing and donations. **A testnet key only; never commit it.** |
 | `MILESTONE_MANAGER_ADDRESS`, `MANAGER_START_BLOCK` | Optional. The shared MilestoneManager and its deploy block (public values; Amoy: `0xe6d7222dDe3eE4b9688269427631aDF49229e747`, `47997230`). Turn on milestone registration, attestation, council approval and release, and let the indexer read releases. Sponsored actions need `FACTORY_OWNER_KEY` too. |
 | `BENEFICIARY_REGISTRY_ADDRESS`, `REGISTRY_START_BLOCK` | Optional (public values; Amoy: `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D`, `48161539`). Turns on beneficiary registration and the public unique-beneficiary count. |
+| `BENEFICIARY_REGISTRY_V2`, `BENEFICIARY_REQUIRED_ATTESTATIONS` | Optional. Set `BENEFICIARY_REGISTRY_V2=1` only when the two addresses in this table point at `BeneficiaryRegistryV2` and `DisbursementV2` (Amoy: `0xF1C72cF2D5722a837305424D1966BBBe7F73454a`, start block `52128113`, and `0xba49F68CabB0389091B4767aedfFc90B182f7Bd2`, start block `52128142`); the attestor's confirmation is then also sent on-chain and only confirmed ones count. `BENEFICIARY_REQUIRED_ATTESTATIONS` (default 1) is how many distinct attestors must confirm a beneficiary before a payout is allowed, and must equal the V2 registry's constructor value. |
 | `DISBURSEMENT_ADDRESS`, `DISBURSEMENT_START_BLOCK` | Optional, **deployed on Amoy** (`0x8305ECfbd9365efF27efD6f360C36589C006e5eA`, start block `48925371`). Turns on recording payouts to beneficiaries and the public Payouts section. |
 | `PLATFORM_FEE_MINOR_UNITS`, `PLATFORM_FEE_ADDRESS` | Optional flat donation fee (default none) |
 
@@ -57,7 +59,7 @@ pnpm --filter ./apps/web admin:promote you@example.com
 pnpm dev         # development server
 pnpm build       # production build
 pnpm lint        # eslint
-pnpm test        # vitest
+pnpm test        # vitest (497 pass, 6 opt-in live tests skipped)
 pnpm typecheck   # tsc --noEmit
 pnpm db:generate # create a SQL migration after editing lib/db/schema.ts
                  # (if pnpm's dependency check trips: npx drizzle-kit generate --name <x>)

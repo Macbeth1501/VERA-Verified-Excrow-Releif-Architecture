@@ -293,9 +293,9 @@ As `live-org@test.com`:
 3. **Expect:** "registered on the blockchain".
 4. Type **the same detail again** and register. **Expect: refused as a duplicate** (enforced by the database, a chain pre-check and the contract).
 
-### Step 10b. An attestor verifies the beneficiary (cost: 0 POL)
+### Step 10b. An attestor verifies the beneficiary (cost: about 0.01 POL, one sponsored transaction)
 
-A payout is refused until an independent attestor has confirmed the beneficiary exists (an app-level rule; no transaction is sent, so this costs nothing). The beneficiaries page shows "Not yet verified" until then.
+A payout is refused until an independent attestor has confirmed the beneficiary exists. Since 2026-11-06 the app runs on the V2 contracts (`BENEFICIARY_REGISTRY_V2=1`), so the confirmation is a real transaction sent from the attestor's own wallet (the sponsor pays the gas), the attestor's role must show "Registered on the blockchain", and the payout contract itself refuses an unconfirmed beneficiary. The beneficiaries page shows "Not yet verified" until the confirmation is on-chain. Beneficiaries registered before the switch are on the old registry and cannot be used: register a new one in Step 10.
 1. As `live-att1@test.com`, open **/dashboard/attestor**, scroll to **Verify beneficiaries**, choose the campaign, type a wrong detail. **Expect: "No match".**
 2. Type exactly the detail the organizer registered in Step 10. **Expect: "Confirmed ... can be paid".** Repeating it as the same attestor is refused.
 3. As `live-org@test.com`, reload the beneficiaries page. **Expect: "Verified by 1 attestor".**

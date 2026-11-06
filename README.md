@@ -12,7 +12,7 @@ It runs on **Polygon Amoy** (testnet) with a mock rupee token (`mINR`). It is a 
 2. **Donors** register with an email (a wallet is generated for them) and donate. Practice funds are minted for them and the platform sponsors gas.
 3. For each milestone, **attestors** confirm completion by submitting a hash of their evidence. The contract counts each attestor once; at the required number (at least 2) the milestone is *Verified*.
 4. A release at or below the auto-release limit (100 mINR) needs only that. Above it, **council members** must also approve (3 approvals). Then the release moves the milestone's share to the organizer. An admin can change the limit (it applies to campaigns published afterwards) and the number of approvals from the admin console; the contract never allows fewer than 2.
-5. The organizer registers each **beneficiary** as a salted fingerprint made in the browser (no identity data reaches the server). An independent **attestor** who has met the person confirms they exist, again by fingerprint only, and only then can the organizer record a **payout** to them through the `Disbursement` contract. That check is enforced by the app and database; the `BeneficiaryRegistryV2` and `DisbursementV2` contracts (deployed on Amoy, not yet switched on in the running app) make the chain enforce it too.
+5. The organizer registers each **beneficiary** as a salted fingerprint made in the browser (no identity data reaches the server). An independent **attestor** who has met the person confirms they exist, again by fingerprint only, and only then can the organizer record a **payout** to them through the `Disbursement` contract. That check is enforced by the app and database; the `BeneficiaryRegistryV2` and `DisbursementV2` contracts (deployed on Amoy and switched on in the running app on 2026-11-06) make the chain enforce it too.
 6. If a campaign passes its **end date**, goes a set number of days with no milestone release, or finishes with money left, anyone can close it and each donor claims their share back from the vault (refunds are pro rata; money already released is never clawed back).
 7. Anyone can open the **public ledger** for a campaign: money held, released and paid out, every event with a Polygonscan link, and a reconciliation badge that is green only when the database, the vault and the token balance match exactly.
 
@@ -68,7 +68,7 @@ pnpm dev         # Next.js dev server on http://localhost:3000
 pnpm build       # production build
 pnpm lint        # eslint
 pnpm test        # forge test (contracts): 122 tests, fuzz at 10,000 runs
-pnpm test:web    # vitest (web): 483 pass, 6 opt-in live tests skipped
+pnpm test:web    # vitest (web): 497 pass, 6 opt-in live tests skipped
 pnpm --filter @vera/types typecheck
 ```
 

@@ -1,0 +1,12 @@
+Executing previous transactions from the block.
+Traces:
+  [116737] 0x6326000CCaEd562fc4787b8D9aF8fDA13479Fa5f::deposit(250000000 [2.5e8])
+    ├─ [36414] 0x9B6F00a1CE627A3E0D2da601253704084d8fc52c::transferFrom(0xb1872469A3F1FC56945B293533Ed53E8f53835D8, 0x6326000CCaEd562fc4787b8D9aF8fDA13479Fa5f, 250000000 [2.5e8])
+    │   ├─ emit Transfer(from: 0xb1872469A3F1FC56945B293533Ed53E8f53835D8, to: 0x6326000CCaEd562fc4787b8D9aF8fDA13479Fa5f, amount: 250000000 [2.5e8])
+    │   └─ ← [Return] true
+    ├─ emit DonationReceived(donor: 0xb1872469A3F1FC56945B293533Ed53E8f53835D8, amount: 250000000 [2.5e8], newBalance: 250000000 [2.5e8])
+    └─ ← [Stop]
+
+
+Transaction successfully executed.
+Gas used: 125577

@@ -17,6 +17,7 @@ All commands are **Git Bash** (Unix syntax) and use Foundry's `cast`, which is a
 | Currency | POL (used to pay gas) |
 | Private key | Stored in `contracts/.env` as `DEPLOYER_PRIVATE_KEY`. Never paste it into chat, docs or commits. |
 | Explorer page | https://amoy.polygonscan.com/address/0xb2Ab1471d98909237B3F3828E7422182584E11E3 |
+| Balance on 2026-11-06 | **64.884866885 POL** read on-chain after the V2 contract deploys (0.0585 POL), their live check (0.2137 POL) and the Amoy admin-controls test (0.0040 POL); it had been topped up since 2026-10-26. |
 | Balance on 2026-10-26 | **50.325 POL** after the user's full live walkthrough (50.64 before the new Factory deploy, 0.094 POL; about 0.22 POL for the walkthrough; 35.643 after the last live run on 2026-09-30, topped up since; earlier history: was about 0.01 on 2026-09-19 after deploying MilestoneManager at a gas spike, 1.41 POL, and running live tests; topped up substantially since; 2026-09-30 spent about 1.15 POL: 0.032 on the `Disbursement` deploy and 0.283 + 0.283 + 0.300 + 0.283 on four live test runs, one cut off, one failed). Comfortable for further testing. |
 
 Related deployed contracts (for reference):
