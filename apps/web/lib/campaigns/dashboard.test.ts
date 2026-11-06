@@ -1,3 +1,5 @@
+/** Unit tests for the campaign dashboard: goal progress, data freshness, the CSV and JSON exports, and the expiry picture. */
+
 import { describe, expect, it } from "vitest";
 import { buildExpiry, goalReachedBps } from "./dashboard";
 import type { CampaignWithMilestones } from "./service";
@@ -14,7 +16,7 @@ const data: DashboardData = {
   organizer: { id: "o1", legalName: "Trust", jurisdiction: "India" },
   vault: "0x6590E3D9E42EDB7e8970b9348CE457b9a2f990F7",
   escrow: { heldMinorUnits: "260000000", totalDonatedMinorUnits: "260000000", totalReleasedMinorUnits: "0", totalRefundedMinorUnits: "0", donationCount: 2, goalReachedBps: 2600 },
-  beneficiaries: { uniqueCount: 3, registry: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9" },
+  beneficiaries: { uniqueCount: 3, registry: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9", verification: { registered: 3, verified: 2, required: 1, onChain: false } },
   payouts: { entries: [], totalMinorUnits: "0", contract: null },
   milestones: [],
   expiry: { enabled: false, state: "open", deadlineAt: null, inactivityDays: 30, inactivityDeadlineAt: null, closableReason: null, closed: null, refundCount: 0 },

@@ -8,10 +8,13 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @notice The slices of the other contracts this one reads. All are views: nothing here can
 ///         change a vault, a milestone or a registration.
 interface IVault {
+    /// @notice The organizer who owns the vault.
     function organizer() external view returns (address);
+    /// @notice The milestone manager the vault is bound to.
     function milestoneManager() external view returns (address);
 }
 
+/// @notice The slice of MilestoneManager this contract reads: milestone state and the total released.
 interface IManager {
     struct Milestone {
         uint256 targetPct;
@@ -22,11 +25,15 @@ interface IManager {
         uint8 status; // 0 Pending, 1 Verified, 2 Released
     }
 
+    /// @notice A milestone's targets, counts and status (0 Pending, 1 Verified, 2 Released).
     function getMilestone(address vault, uint256 index) external view returns (Milestone memory);
+    /// @notice Total mINR released from the vault through the manager.
     function releasedTotal(address vault) external view returns (uint256);
 }
 
+/// @notice The slice of BeneficiaryRegistry this contract reads.
 interface IRegistry {
+    /// @notice Whether this identity fingerprint is registered for the vault.
     function isRegistered(address vault, bytes32 identityHash) external view returns (bool);
 }
 
@@ -73,14 +80,23 @@ contract Disbursement is ReentrancyGuard {
         address organizer
     );
 
+    /// @notice A constructor address was the zero address.
     error ZeroAddress();
+    /// @notice Only the vault's own organizer may record payouts.
     error NotVaultOrganizer();
+    /// @notice The vault is not bound to the milestone manager this contract trusts.
     error VaultNotBoundToThisManager();
+    /// @notice The milestone has not been released, so there is nothing to pay out.
     error MilestoneNotReleased();
+    /// @notice This milestone's payout was already recorded.
     error MilestoneAlreadyDisbursed();
+    /// @notice The beneficiary is not registered for this vault.
     error BeneficiaryNotRegistered();
+    /// @notice The payout amount must be greater than zero.
     error ZeroAmount();
+    /// @notice A payout needs a non-zero off-ramp reference hash.
     error MissingPayoutReference();
+    /// @notice The payout is more than the released funds still unpaid.
     error ExceedsReleased(uint256 requested, uint256 available);
 
     constructor(address token_, address manager_, address registry_) {

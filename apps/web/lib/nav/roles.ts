@@ -1,10 +1,12 @@
 import type { Role } from "../auth/session";
 
+/** One navigation link: where it goes and its label. */
 export interface NavLink {
   href: string;
   label: string;
 }
 
+/** The signed-in identity the navigation is built for. */
 export interface NavIdentity {
   id: string;
   email: string;
@@ -19,6 +21,7 @@ const ROLE_LABEL: Record<Role, string> = {
   admin: "Admin",
 };
 
+/** Display name of a role. */
 export function roleLabel(role: Role): string {
   return ROLE_LABEL[role];
 }
@@ -67,6 +70,7 @@ export function navLinksFor(role: Role): NavLink[] {
   return links;
 }
 
+/** How a tab's identity differs from the current session: unchanged, signed out, or switched to someone else. */
 export type IdentityChange =
   | { kind: "same" }
   | { kind: "signed-out" }

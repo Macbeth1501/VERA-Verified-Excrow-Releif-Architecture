@@ -11,10 +11,13 @@ const INPUT =
   "mt-1 w-full rounded-md border border-rule-strong bg-well px-3 py-2 text-ink ";
 const short = (hash: string) => `${hash.slice(0, 10)}...${hash.slice(-6)}`;
 
+/** A registered beneficiary that can be chosen as a payout recipient: id, the identity hash that was registered on-chain, and the payout method on file. */
 export interface PayoutBeneficiary {
   id: string;
   identityHash: string;
   payoutMethod: string;
+  /** Confirmed to exist by enough independent attestors (C5). An unverified beneficiary cannot be paid. */
+  verified: boolean;
 }
 
 /**
@@ -36,7 +39,7 @@ export function PayoutForm({
   suggestedMinorUnits: string | null;
 }) {
   const router = useRouter();
-  const [beneficiaryId, setBeneficiaryId] = useState(existing?.beneficiaryId ?? beneficiaries[0]?.id ?? "");
+  const [beneficiaryId, setBeneficiaryId] = useState(existing?.beneficiaryId ?? (beneficiaries.find((b) => b.verified) ?? beneficiaries[0])?.id ?? "");
   const [amount, setAmount] = useState(() => {
     const minor = existing?.amountMinorUnits ?? suggestedMinorUnits;
     return minor ? formatUnits(BigInt(minor), MINR_DECIMALS) : "";
@@ -71,6 +74,9 @@ export function PayoutForm({
     const amountMinorUnits = rupeesToMinorUnits(amount);
     if (!amountMinorUnits) return setMessage({ kind: "error", text: "Enter the amount paid, in rupees." });
     if (!beneficiaryId) return setMessage({ kind: "error", text: "Choose a registered beneficiary." });
+    if (!beneficiaries.find((b) => b.id === beneficiaryId)?.verified) {
+      return setMessage({ kind: "error", text: "That beneficiary has not been confirmed by an independent attestor yet. Ask an attestor to verify them first." });
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -112,7 +118,7 @@ export function PayoutForm({
             <select className={INPUT} value={beneficiaryId} onChange={(e) => setBeneficiaryId(e.target.value)} disabled={busy || pending}>
               {beneficiaries.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {short(b.identityHash)} · {b.payoutMethod}
+                  {short(b.identityHash)} · {b.payoutMethod} · {b.verified ? "verified" : "not yet verified"}
                 </option>
               ))}
             </select>

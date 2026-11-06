@@ -1,3 +1,5 @@
+/** Unit tests for classifying why a chain comparison could not be made. */
+
 import { describe, expect, it } from "vitest";
 import { classifyReconcileError } from "./dashboard";
 

@@ -230,6 +230,9 @@ Expected: it prints that the account is now an admin. Sign in as `admin@test.com
 2. Enter `att1@test.com`, choose Attestor, click Grant role. Repeat for `att2@test.com`.
 3. Enter `c1@test.com`, choose Council member, click Grant role. Repeat for `c2@test.com` and `c3@test.com`.
 4. Expected: each row says "Registered on the blockchain".
+5. **Council approval limit.** Scroll to **Council approval limit**. It shows the current limit read from the chain (`₹100.00` on a fresh deploy). Optional: type `250.5`, click Save, then **Confirm change**. Expected: "Limit changed" with a transaction link (fake money on anvil), and the current limit becomes `₹250.50`. Check it with `cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "autoReleaseLimit()(uint256)" --rpc-url http://127.0.0.1:8545` (`250500000`). The new value only applies to campaigns published **after** this change; existing campaigns keep the limit they were published with. If you change it, the "above the limit needs the council" steps below use your new value, so put it back to `100` first. Refused: a negative number, more than 2 decimals, or more than 1,00,00,000.
+   **Council approvals needed.** Below it, a second section shows the current number (`3`) and how many council members are registered. Type `2`, Save: a list of releases waiting for the council appears (none yet at this point), then **Confirm change**. Expected: "Number changed" and the council console (`/dashboard/council`) now says releases need 2 approvals. **Unlike the limit, this applies at once to every release already waiting**, and the tests below assume 3, so set it back to `3`. Refused: `1` (contract floor of 2), or more than the number of registered council members (3 here). Check with `cast call 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 "councilThreshold()(uint256)" --rpc-url http://127.0.0.1:8545`.
+6. **Attestor count guard.** The new-campaign form (next step) shows "2 attestors are registered." under each "Confirmations needed" field. Setting a milestone to 3 confirmations is refused ("Only 2 attestors are registered; ask an admin to add more or lower this number.").
 
 ### Step 5: Create and publish a campaign
 1. Sign in as `org@test.com` and open the dashboard to create a campaign.
@@ -275,7 +278,8 @@ Needs the BeneficiaryRegistry and Disbursement contracts from section 4 (command
 1. As `org@test.com`, open the campaign in your dashboard and follow the link to **Beneficiaries** (`/dashboard/campaigns/<id>/beneficiaries`).
 2. Under **Register a beneficiary**, enter an identifying detail (for example `Asha Devi, 1990-04-12, Rampur`), fill in "How will they be paid?" and click **Register beneficiary**. Expected: registered on the blockchain. The detail is scrambled into a fingerprint in your browser; the server and the chain never see the text.
 3. Register the **same** detail again. Expected: refused as a duplicate (the database, a chain pre-check and the contract itself all enforce it).
-4. Back on the campaign page, under a Released milestone, the **Record payout** card appears. Pick the beneficiary, enter `100` and click **Record payout**. Expected: it sends an approval and then the payout (up to a minute) and shows the result.
+3b. **Attestor verification (C5).** The beneficiaries page now says "Not yet verified (0 of 1 attestors)" for that person, and the **Record payout** picker lists them as "not yet verified" and refuses them. Sign in as `att1@test.com`, open `/dashboard/attestor`, scroll to **Verify beneficiaries**, choose the campaign and type a **wrong** detail. Expected: "No match". Now type **the exact detail the organizer registered** (spelling and capitals do not matter). Expected: "Confirmed ... can be paid". Try it again as `att1@test.com`. Expected: refused ("already confirmed"). As `org@test.com`, reload the beneficiaries page. Expected: "Verified by 1 attestor". This rule is enforced by the app and database, not by the blockchain. (Set `BENEFICIARY_REQUIRED_ATTESTATIONS=2` in `.env.development.local` and restart for a 2-attestor requirement.)
+4. Back on the campaign page, under a Released milestone, the **Record payout** card appears. Pick the (verified) beneficiary, enter `100` and click **Record payout**. Expected: it sends an approval and then the payout (up to a minute) and shows the result. Before the attestor step, the same click is refused with "has not been confirmed by an independent attestor yet" and no gas is spent.
 5. Try to record a payout for the same milestone again. Expected: refused ("already paid"). Try an amount above what has been released and not yet paid out. Expected: refused before any transaction is sent.
 
 ### Step 9: Check the public audit page
@@ -359,6 +363,25 @@ npx vitest run lib/disbursement/live-local.test.ts
 Expected: `1 passed` (takes about 85 seconds). **Run it against a Disbursement contract that has no earlier payouts**: it asserts the contract holds exactly 30 mINR, so after the previous test (or any manual payout) it fails with `expected 60000000n to be 30000000n`. Either run it on a fresh anvil, or deploy a second Disbursement (command 5 in section 4) and pass that address as `DISBURSEMENT_ADDRESS`. It refuses to run against anything but `127.0.0.1`/`localhost`, so it can never spend Amoy POL either.
 
 ---
+
+### Trying the V2 contracts (optional, C6)
+
+`BeneficiaryRegistryV2` and `DisbursementV2` replace commands 4 and 5 in section 4. They are **not deployed on Amoy**; this is local only. Deploy them in the same order (the addresses stay the same on a fresh anvil), with the registry taking the manager and the number of attestors required:
+
+```bash
+forge create src/BeneficiaryRegistryV2.sol:BeneficiaryRegistryV2 --rpc-url $R --private-key $K --broadcast --constructor-args 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 1
+forge create src/DisbursementV2.sol:DisbursementV2 --rpc-url $R --private-key $K --broadcast --constructor-args 0x5FbDB2315678afecb367f032d93F642f64180aa3 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+```
+
+Then add `BENEFICIARY_REGISTRY_V2=1` to `apps/web/.env.development.local` (and keep `BENEFICIARY_REQUIRED_ATTESTATIONS` equal to the `1` above) and restart `pnpm dev`. In step 8b the attestor's confirmation now also sends a transaction from their own wallet; the organizer's page counts only confirmed ones. Check it with `cast call 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9 "isVerified(address,bytes32)(bool)" <vault> <identity hash>`. To see that the **contract** (not just the app) refuses an unconfirmed beneficiary, run the end-to-end test below with `BENEFICIARY_REGISTRY_V2=1`; it also tries a direct payout to an unconfirmed beneficiary and expects the refusal. The attestor must have the Attestor role registered on the blockchain (step 4), or the app says so and sends nothing.
+
+```bash
+BENEFICIARY_REGISTRY_V2=1 LIVE_LOCAL=1 FACTORY_OWNER_KEY=<anvil account 0> RPC_URL=http://127.0.0.1:8545 \
+MOCK_INR_ADDRESS=<1> FACTORY_ADDRESS=<3> MILESTONE_MANAGER_ADDRESS=<2> BENEFICIARY_REGISTRY_ADDRESS=<4> \
+DISBURSEMENT_ADDRESS=<5> npx vitest run lib/disbursement/live-local.test.ts
+```
+
+Passed 2026-11-06 in 101 s on the V2 contracts and in 89 s on the original ones (run it without the flag against the original five). Use a fresh anvil for each, since it asserts the Disbursement contract holds exactly 30 mINR.
 
 ## 9. The free automated checks (no chain needed)
 

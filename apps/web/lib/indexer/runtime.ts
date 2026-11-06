@@ -4,6 +4,7 @@ import { getEnv } from "../env";
 import { syncOnce, type SyncResult } from "./sync";
 import type { ChainReader, IndexerConfig } from "./types";
 
+/** The indexer's live dependencies: the chain reader, its config and, when configured, the registry and disbursement contract addresses. */
 export interface IndexerRuntime {
   reader: ChainReader;
   config: IndexerConfig;

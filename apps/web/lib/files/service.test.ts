@@ -1,3 +1,5 @@
+/** Unit tests for saving uploaded documents: size, type and fingerprint checks. */
+
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetEnvCache } from "../env";

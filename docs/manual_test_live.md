@@ -22,7 +22,7 @@ The app publishes campaigns with an **end date and an inactivity rule** (6-argum
 | `setMilestoneManager` tx | `0x54fe0b2fbab2354c490fbc158ff1632293dfbc5e0b5d0e29def4dd3330cf9b97` |
 | Cost | about 0.094 POL (sponsor 50.643 to 50.549) |
 
-No organizer is registered on it yet: the admin's **Approve** in Step 3 does that. The old Factory's campaigns (#0-#3) no longer appear in the app, which is expected.
+The organizer is registered on it by the admin's **Approve** in Step 3 (the 2026-10-26 walkthrough did this). The old Factory's campaigns (#0-#3) no longer appear in the app, which is expected.
 
 ---
 
@@ -118,6 +118,36 @@ pnpm dev
 
 Wait for `Ready`, then open http://localhost:3000 in **browser window 1**. The database is created and migrated automatically on the first request. Stop any other `pnpm dev` first (only one can run, and an old one has old settings). Restart `pnpm dev` whenever you change `.env.local`.
 
+### 4b. Optional: open the site on other phones and devices (Cloudflare Tunnel, free, 0 POL)
+
+Skip this if you use one computer. Do it when you want different people, or different phones, to sign in as different accounts at the same time. Each device keeps its own login, so the "Another window signed in as ..." bar never appears.
+
+`cloudflared` must be installed (check with `cloudflared --version`). It gives your local site a public `https://` link without any account or domain.
+
+1. **Stop `pnpm dev`** (Ctrl+C in Terminal C). Use the production build for the tunnel: the login cookie is only marked `Secure` in production, which is what a phone on https needs.
+2. In **Terminal C**, build and start:
+
+   ```bash
+   cd /c/Users/Rochan/Desktop/Coding/Projects/vera-mvp
+   pnpm --filter ./apps/web build
+   pnpm --filter ./apps/web start
+   ```
+
+   Wait until it says it is listening on port 3000. Rebuild whenever you change `.env.local`.
+3. In a new **Terminal D**, open the tunnel:
+
+   ```bash
+   cloudflared tunnel --url http://localhost:3000
+   ```
+
+   After a few seconds it prints a link like `https://random-words.trycloudflare.com`. Open that link on each phone and sign in as a different account from section 5.
+4. Keep the computer **awake** (Windows power settings, sleep set to Never) and both terminals running. If either stops, every device loses the site.
+
+Notes:
+- The link **changes every time** you restart the tunnel. Send people the new one.
+- Anyone with the link can open the site, and registering or donating spends sponsor POL. Share it only with the people testing, and close Terminal D when you are done.
+- The accounts, database and admin promotion work exactly as in the rest of this guide; the tunnel only changes how devices reach the site.
+
 ---
 
 ## 5. The eight accounts (what each one is for)
@@ -188,6 +218,9 @@ In browser window 1, as admin on **/dashboard/admin**, scroll to **Attestors and
 2. Repeat for `live-att2@test.com` (**Attestor**).
 3. Type `live-c1@test.com`, pick **Council member**, click **Grant role**. Repeat for `live-c2@test.com` and `live-c3@test.com`.
 4. **Expect:** each row says **"Registered on the blockchain"**. A row that does not has a **Retry sync** button; use it.
+5. **Do not use the "Council approval limit" section on the live chain during a demo.** It shows the real limit (100 mINR) read from the manager; saving a new value sends a real transaction (about 0.002 POL at 30 gwei) and only affects campaigns published afterwards. The walkthrough below assumes the limit stays at 100 mINR. Showing the section and explaining the snapshot rule is enough.
+   Likewise **do not use "Council approvals needed" on the live chain**: it is a real transaction (the live value is 3) and, unlike the limit, it applies immediately to releases already waiting for the council. Showing the section and the council console's current number is enough.
+6. The new-campaign form shows how many attestors are registered, and refuses a milestone that needs more confirmations than that (free, caught before anything is sent). Do this step before creating the campaign.
 
 Things that must be **refused** here (no POL spent, caught before sending): granting Attestor to `live-org@test.com` or `live-admin@test.com` (conflict of interest).
 
@@ -260,10 +293,17 @@ As `live-org@test.com`:
 3. **Expect:** "registered on the blockchain".
 4. Type **the same detail again** and register. **Expect: refused as a duplicate** (enforced by the database, a chain pre-check and the contract).
 
+### Step 10b. An attestor verifies the beneficiary (cost: 0 POL)
+
+A payout is refused until an independent attestor has confirmed the beneficiary exists (an app-level rule; no transaction is sent, so this costs nothing). The beneficiaries page shows "Not yet verified" until then.
+1. As `live-att1@test.com`, open **/dashboard/attestor**, scroll to **Verify beneficiaries**, choose the campaign, type a wrong detail. **Expect: "No match".**
+2. Type exactly the detail the organizer registered in Step 10. **Expect: "Confirmed ... can be paid".** Repeating it as the same attestor is refused.
+3. As `live-org@test.com`, reload the beneficiaries page. **Expect: "Verified by 1 attestor".**
+
 ### Step 11. Record a payout (cost: about 0.03 POL)
 
-As `live-org@test.com`, on the campaign page under a **Released** milestone the **Record the payout to a beneficiary** card appears.
-1. Pick the beneficiary, enter `100`, click **Record payout**.
+As `live-org@test.com`, on the campaign page under a **Released** milestone the **Record the payout to a beneficiary** card appears. Before Step 10b, choosing the beneficiary is refused with no gas spent.
+1. Pick the (verified) beneficiary, enter `100`, click **Record payout**.
 2. **Expect:** it sends an approval and then the payout ("Recording on the blockchain, this can take a minute...") and shows the result.
 3. Try a second payout for the same milestone. **Expect: refused ("already paid")**. Try an amount larger than what was released and not yet paid out: **refused before any transaction is sent**.
 
@@ -330,6 +370,7 @@ Cross-check on the chain for free:
 | The ledger says "data as of block N" and seems behind, or reconciliation says "could not compare" | Wait 15-20 seconds and refresh. Public RPCs can lag or refuse old state; the app never shows a false match. |
 | A donation stays PENDING | The browser drives it. Reopen it from **Your donations**; nothing is lost and no step repeats. |
 | Amber "Another window signed in as ..." bar | Two windows of one browser profile are signed in as different people. Use a private window for the second person and click **Refresh**. |
+| Phone cannot open the tunnel link, or login does not stick on it | Use `build` + `start` (section 4b), not `pnpm dev`; confirm Terminal D is still running and use the newest link it printed. |
 | Text typed twice, or a form resets | Wait for the page to finish loading before typing. |
 | Old campaigns (#0-#3) have no owner | They were created by accounts that no longer exist in the database. Ignore them, or restore the backup. |
 | After switching to the new Factory, old campaigns vanish from the public list | Expected: the indexer follows one Factory. They still exist on-chain. |

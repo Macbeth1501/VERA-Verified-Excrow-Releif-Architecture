@@ -9,11 +9,14 @@ For the current state, deployed addresses and open issues, read [`docs/PROGRESS_
 | Contract | Role |
 |---|---|
 | `MockINR` | A free mock rupee token (`mINR`, 6 decimals) with an open `mint` faucet, standing in for a real stablecoin. Testnet only. |
-| `CampaignFactory` | Deploys one vault per campaign and enforces, on-chain and non-bypassably: the organizer is verified, the admin-cost cap does not exceed the category ceiling (10% disaster relief, 15% medical, 20% community), and the milestone percentages sum to exactly 100. The owner verifies organizers and sets the milestone manager. |
+| `CampaignFactory` | Deploys one vault per campaign and enforces, on-chain and non-bypassably: the organizer is verified, the admin-cost cap does not exceed the category ceiling (10% disaster relief, 15% medical, 20% community), the milestone percentages sum to exactly 100, and the campaign schedule is valid (a deadline in the future and at most 3 years out, an inactivity window of 1 hour to 3 years). The owner verifies organizers and sets the milestone manager. |
 | `CampaignVault` | Holds one campaign's escrowed mINR. Anyone can deposit; funds leave only through `releaseForMilestone`, callable solely by the milestone manager fixed at construction (no setter, no admin override). Has an optional, disclosed `pause`. **Campaign expiry:** it takes a `deadline` and an `inactivityWindow`, keeps a per-donor ledger, and once the deadline passes, no milestone is released for the whole window, or every milestone is released with money left, anyone can `close()` it and each donor pulls back their pro-rata share with `claimRefund()` (a closed vault refuses deposits and releases; `pause` cannot trap donors). Only vaults created by the new Factory have this. |
 | `MilestoneManager` | One shared contract for every vault (Amoy: `0xe6d7222dDe3eE4b9688269427631aDF49229e747`). The vault's organizer registers milestones (at least 2 confirmations each); owner-curated attestors confirm them once each (never the organizer); at M a milestone is Verified. A release is permissionless once milestones total 100, go in order and are Verified, and needs `councilThreshold` (3) council approvals when it exceeds the auto-release limit (100 mINR). Pays the campaign's organizer and emits `MilestoneReleased`. |
 | `BeneficiaryRegistry` | One shared contract, keyed by vault address (Amoy: `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D`). `register(vault, identityHash, photoHash)`, callable only by that vault's organizer, reverts on a repeat `identityHash` for the same vault. No owner, no plaintext. |
 | `Disbursement` | Downstream of the manager (deployed on Amoy at `0x8305ECfbd9365efF27efD6f360C36589C006e5eA`, block 48925371). `disburse(vault, milestoneIndex, identityHash, amount, payoutRef)`, callable only by the vault's organizer after they approve this contract for `amount` of mINR; refuses unless the milestone is Released, the beneficiary is registered for that vault, the milestone was not already paid, and the running total stays within `manager.releasedTotal(vault)`. Emits `PayoutRecorded`. |
+
+| `BeneficiaryRegistryV2` | The first registry plus independent verification (future scope C6). `register` is unchanged; `attestBeneficiary(vault, identityHash)` lets only a manager-registered attestor (never the vault's organizer, once each) confirm a registered beneficiary; `isVerified` is true at the constructor-set number of distinct attestors (at least 1). **Deployed on Amoy 2026-11-06 at `0xF1C72cF2D5722a837305424D1966BBBe7F73454a` (block 52128113)**; not yet used by the running app. |
+| `DisbursementV2` | `Disbursement` with one changed rule: it pays only a beneficiary the registry reports as **verified** (`BeneficiaryNotVerified` otherwise), so the chain itself refuses a payout to someone no attestor confirmed. **Deployed on Amoy 2026-11-06 at `0xba49F68CabB0389091B4767aedfFc90B182f7Bd2` (block 52128142)**. |
 
 `CampaignVault.releaseForMilestone` emits no event, so `MilestoneManager.MilestoneReleased` is the only record of a release (the web app's indexer reads it). Vaults created before the real manager was set (Factory campaigns #0-#3) are bound to a placeholder and can never release funds. See the progress log.
 
@@ -23,7 +26,7 @@ Run from this directory:
 
 ```bash
 forge build
-forge test                                        # 94 tests across 7 suites; fuzz tests run 10,000 times
+forge test                                        # 122 tests across 9 suites; fuzz tests run 10,000 times
 forge test --match-contract CampaignFactoryTest   # one contract
 forge test --match-test testFuzz_ -vvv            # by name, verbose
 ```
@@ -38,7 +41,7 @@ forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
 
 A campaign cannot be created until the Factory has a milestone manager, because every vault binds its manager permanently when it is created.
 
-**Spending POL:** Amoy's gas price is normally about 30 gwei but has spiked past 500, and one uncapped `forge create` of `MilestoneManager` cost 1.41 POL. Check `cast gas-price` first and pass `--gas-price` (for example `--gas-price 60gwei --priority-gas-price 30gwei`). Deploy `MilestoneManager` with `forge create src/MilestoneManager.sol:MilestoneManager --rpc-url $RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast --constructor-args <autoReleaseLimit> <councilThreshold>`. `slither . --filter-paths lib/` run across the whole project (all six contracts together) reports 4 informational/low findings and 0 medium/high; see `docs/PROGRESS_LOG.md`'s Module 4.3 entry for what they are and why they're accepted as-is.
+**Spending POL:** Amoy's gas price is normally about 30 gwei but has spiked past 500, and one uncapped `forge create` of `MilestoneManager` cost 1.41 POL. Check `cast gas-price` first and pass `--gas-price` (for example `--gas-price 60gwei --priority-gas-price 30gwei`). Deploy `MilestoneManager` with `forge create src/MilestoneManager.sol:MilestoneManager --rpc-url $RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast --constructor-args <autoReleaseLimit> <councilThreshold>`. `slither . --filter-paths lib/` run across the whole project (all six contracts together) reports 8 informational/low findings (Slither 0.11.6, re-run 2026-10-27 after expiry was added; 4 before it, the 4 new ones are timestamp comparisons) and 0 medium/high; see `docs/PROGRESS_LOG.md`'s Module 4.3 entry for what they are and why they're accepted as-is.
 
 Testnet POL for gas comes from a faucet; see [`docs/mining_instructions.md`](../docs/mining_instructions.md).
 

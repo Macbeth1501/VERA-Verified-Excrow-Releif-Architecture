@@ -5,6 +5,7 @@
  * caller can record them and retry. Ref: SPDD §18.3, FR-ESC-01, FR-GOV-01.
  */
 
+/** Result of sending one transaction: success with its hash, or an error. `pending` marks a transaction that was sent but whose outcome is unknown. */
 export type Tx =
   | { ok: true; txHash: string }
   /** `pending` means the transaction WAS sent but its outcome is unknown: keep it PENDING, never FAILED. */
@@ -17,6 +18,7 @@ export interface Signer {
   keyEnc: string;
 }
 
+/** A milestone's status as the contract reports it. */
 export type ChainStatus = "Pending" | "Verified" | "Released";
 
 /** One milestone as the MilestoneManager contract itself reports it. Amounts are mINR minor units. */
@@ -32,11 +34,13 @@ export interface MilestoneState {
   releasableAmount: string;
 }
 
+/** Outcome of an already-sent transaction. */
 export type TxState = "success" | "reverted" | "pending";
 
 /** Called with the transaction hash as soon as it is sent, so it can be saved before waiting. */
 export type OnSent = (txHash: string) => void;
 
+/** The milestone flow's view of the chain: configuration, reading milestones, defining them, attesting, council approval, release and role setup. Methods return failures as values and never throw. */
 export interface EscrowChain {
   /** False when the manager address or the sponsor key is missing; every action reports "not configured". */
   configured(): boolean;
@@ -56,4 +60,12 @@ export interface EscrowChain {
   release(vault: string, index: number, onSent: OnSent): Promise<Tx>;
   /** Owner-only: register or remove an attestor or council member. Idempotent. */
   setRole(kind: "attestor" | "council", address: string, active: boolean): Promise<Tx>;
+  /** The manager's current global auto-release limit (mINR minor units); null = could not read. */
+  readAutoReleaseLimit(): Promise<string | null>;
+  /** Owner-only, sponsor-sent. Applies only to milestones defined afterwards (each snapshots the limit). */
+  setAutoReleaseLimit(minorUnits: string): Promise<Tx>;
+  /** The manager's current global council threshold K; null = could not read. */
+  readCouncilThreshold(): Promise<number | null>;
+  /** Owner-only, sponsor-sent. NOT snapshotted: it applies at once to every milestone still waiting for the council. */
+  setCouncilThreshold(threshold: number): Promise<Tx>;
 }

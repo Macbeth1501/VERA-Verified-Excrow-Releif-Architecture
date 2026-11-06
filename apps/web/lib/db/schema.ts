@@ -24,7 +24,9 @@ export const users = sqliteTable("users", {
     .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
 });
 
+/** A row of the users table, as read. */
 export type UserRow = typeof users.$inferSelect;
+/** A users row to insert. */
 export type NewUserRow = typeof users.$inferInsert;
 
 /**
@@ -37,7 +39,7 @@ export type NewUserRow = typeof users.$inferInsert;
  */
 export const documents = sqliteTable("documents", {
   id: text("id").primaryKey(),
-  purpose: text("purpose", { enum: ["kyb", "milestone_evidence"] }).notNull(),
+  purpose: text("purpose", { enum: ["kyb", "milestone_evidence", "beneficiary_evidence"] }).notNull(),
   filename: text("filename").notNull(),
   mimeType: text("mime_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
@@ -51,6 +53,7 @@ export const documents = sqliteTable("documents", {
     .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
 });
 
+/** A row of the documents table (an uploaded verification document), as read. */
 export type DocumentRow = typeof documents.$inferSelect;
 
 /**
@@ -88,6 +91,7 @@ export const organizerProfiles = sqliteTable("organizer_profiles", {
     .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
 });
 
+/** A row of the organizer profiles table, as read. */
 export type OrganizerProfileRow = typeof organizerProfiles.$inferSelect;
 
 /**
@@ -160,7 +164,9 @@ export const milestones = sqliteTable("milestones", {
   chainError: text("chain_error"),
 });
 
+/** A row of the campaigns table, as read. */
 export type CampaignRow = typeof campaigns.$inferSelect;
+/** A row of the milestones table, as read. */
 export type MilestoneRow = typeof milestones.$inferSelect;
 
 /**
@@ -181,6 +187,7 @@ export const chainEvents = sqliteTable("chain_events", {
       "CouncilApproved",
       "MilestoneReleased",
       "BeneficiaryRegistered",
+      "BeneficiaryAttested",
       "PayoutRecorded",
       "CampaignClosed",
       "RefundClaimed",
@@ -208,6 +215,7 @@ export const indexerCursors = sqliteTable("indexer_cursors", {
   updatedAt: text("updated_at").notNull(),
 });
 
+/** A row of the indexed chain events table, as read. */
 export type ChainEventRow = typeof chainEvents.$inferSelect;
 
 /**
@@ -250,6 +258,7 @@ export const donations = sqliteTable("donations", {
   confirmedAt: text("confirmed_at"),
 });
 
+/** A row of the donations table, as read. */
 export type DonationRow = typeof donations.$inferSelect;
 
 /**
@@ -276,6 +285,7 @@ export const roleGrants = sqliteTable(
   (t) => [uniqueIndex("role_grants_user_role").on(t.userId, t.role)],
 );
 
+/** A row of the role grants table, as read. */
 export type RoleGrantRow = typeof roleGrants.$inferSelect;
 
 /**
@@ -312,6 +322,7 @@ export const milestoneActions = sqliteTable(
   (t) => [uniqueIndex("milestone_actions_once").on(t.milestoneId, t.kind, t.actorAddress)],
 );
 
+/** A row of the milestone actions table (attestation, council approval or release), as read. */
 export type MilestoneActionRow = typeof milestoneActions.$inferSelect;
 
 /**
@@ -360,7 +371,49 @@ export const beneficiaries = sqliteTable(
   (t) => [uniqueIndex("beneficiaries_once").on(t.campaignId, t.identityHash)],
 );
 
+/** A row of the beneficiaries table, as read. */
 export type BeneficiaryRow = typeof beneficiaries.$inferSelect;
+
+/**
+ * BENEFICIARY_ATTESTATIONS (future scope C5): an attestor met a registered beneficiary and confirmed they
+ * exist, by typing the identity fragment in their own browser and sending only the salted fingerprint.
+ * UNIQUE on (beneficiary, attestor): each attestor counts once. Whether a beneficiary is "verified" is
+ * always derived by counting these rows against `BENEFICIARY_REQUIRED_ATTESTATIONS`, never stored as a
+ * status that could drift. App-enforced only: no contract checks it (that is C6).
+ */
+export const beneficiaryAttestations = sqliteTable(
+  "beneficiary_attestations",
+  {
+    id: text("id").primaryKey(),
+    beneficiaryId: text("beneficiary_id")
+      .notNull()
+      .references(() => beneficiaries.id),
+    attestorUserId: text("attestor_user_id")
+      .notNull()
+      .references(() => users.id),
+    /** Optional 0x hash of the evidence the attestor reviewed, computed in their browser. */
+    evidenceHash: text("evidence_hash"),
+    /** Optional stored copy of that evidence (documents purpose `beneficiary_evidence`). */
+    evidenceDocumentId: text("evidence_document_id").references(() => documents.id),
+    /**
+     * "none" when verification is an app-level rule only (original contracts). With the V2 contracts
+     * (C6) the attestor's wallet also sends `attestBeneficiary`: the hash is saved before waiting and
+     * an unknown outcome stays PENDING, like every other chain action. Only CONFIRMED rows count then.
+     */
+    chainStatus: text("chain_status", { enum: ["none", "PENDING", "CONFIRMED", "FAILED"] })
+      .notNull()
+      .default("none"),
+    chainTxHash: text("chain_tx_hash"),
+    chainError: text("chain_error"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  },
+  (t) => [uniqueIndex("beneficiary_attestations_once").on(t.beneficiaryId, t.attestorUserId)],
+);
+
+/** A row of the beneficiary attestations table, as read. */
+export type BeneficiaryAttestationRow = typeof beneficiaryAttestations.$inferSelect;
 
 /**
  * DISBURSEMENTS (SPDD 18.4, FR-ESC-02): the simulated payout of a released milestone to one
@@ -407,4 +460,5 @@ export const disbursements = sqliteTable("disbursements", {
   confirmedAt: text("confirmed_at"),
 });
 
+/** A row of the disbursements table (a recorded payout), as read. */
 export type DisbursementRow = typeof disbursements.$inferSelect;

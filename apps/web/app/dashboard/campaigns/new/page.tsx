@@ -1,9 +1,13 @@
 import { CampaignForm } from "@/components/CampaignForm";
 import { PageHead } from "@/components/PageHead";
+import { escrowChain } from "@/lib/chain/manager";
 import { requirePageOrganizer } from "@/lib/campaigns/page-guard";
+import { getDb } from "@/lib/db";
+import { countSyncedRole } from "@/lib/escrow/service";
 
 export const metadata = { title: "New campaign | VERA" };
 
+/** New-campaign page. Renders the campaign creation form for a signed-in organizer. */
 export default async function NewCampaignPage() {
   await requirePageOrganizer();
 
@@ -14,7 +18,7 @@ export default async function NewCampaignPage() {
         title="Create a campaign"
         lead="Donations go into an escrow account of their own. Money is only released once the milestones below are independently confirmed."
       />
-      <CampaignForm />
+      <CampaignForm attestorCount={escrowChain().configured() ? countSyncedRole(getDb(), "attestor") : null} />
     </main>
   );
 }

@@ -2,15 +2,22 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AdminReviewList } from "@/components/AdminReviewList";
 import { PageHead } from "@/components/PageHead";
+import { CouncilThresholdManager } from "@/components/CouncilThresholdManager";
+import { ReleaseLimitManager } from "@/components/ReleaseLimitManager";
 import { RoleManager } from "@/components/RoleManager";
+import { escrowChain } from "@/lib/chain/manager";
+import { campaigns } from "@/lib/db/schema";
+import { getReleaseLimit } from "@/lib/escrow/limits";
+import { getThreshold } from "@/lib/escrow/threshold";
 import { findUserById } from "@/lib/auth/users";
 import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { listRoleGrants } from "@/lib/escrow/service";
+import { countSyncedRole, listRoleGrants, maxOpenRequirement } from "@/lib/escrow/service";
 import { listProfiles } from "@/lib/organizers/service";
 
 export const metadata = { title: "Admin console | VERA" };
 
+/** Admin console. Admins only (anyone else is redirected): organizer verification review and role management. */
 export default async function AdminPage() {
   const session = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (session === null) redirect("/login");
@@ -24,6 +31,21 @@ export default async function AdminPage() {
   const rank = { pending: 0, rejected: 1, verified: 2 } as const;
   const items = listProfiles(db).sort((a, b) => rank[a.kybStatus] - rank[b.kybStatus]);
   const pending = items.filter((i) => i.kybStatus === "pending").length;
+
+  // C3 (warn only): removing an attestor must not strand a live milestone that needs them all.
+  const attestors = countSyncedRole(db, "attestor");
+  const needed = maxOpenRequirement(db);
+  const attestorWarning =
+    needed > 0 && attestors <= needed
+      ? `Live milestones need up to ${needed} confirmations and ${attestors} attestor${attestors === 1 ? " is" : "s are"} registered. ${
+          attestors < needed ? "Some milestones cannot be verified until more attestors are added." : "Removing any attestor would leave some milestones unable to be verified."
+        }`
+      : null;
+
+  const limit = await getReleaseLimit(escrowChain());
+  const threshold = await getThreshold(db, escrowChain());
+  const goals = db.select({ goal: campaigns.fundingGoal }).from(campaigns).all();
+  const largestGoal = goals.reduce<bigint | null>((max, g) => (max === null || BigInt(g.goal) > max ? BigInt(g.goal) : max), null)?.toString() ?? null;
 
   return (
     <main className="w-full max-w-4xl flex-1 py-12 lg:py-16">
@@ -41,7 +63,19 @@ export default async function AdminPage() {
         </p>
         <AdminReviewList items={items} />
       </section>
+      {attestorWarning ? (
+        <p role="note" data-testid="attestor-warning" className="mt-12 max-w-[62ch] rounded-md bg-warn-wash px-3 py-2 text-sm text-warn">
+          {attestorWarning}
+        </p>
+      ) : null}
       <RoleManager grants={listRoleGrants(db)} />
+      <ReleaseLimitManager configured={limit.configured} limitMinorUnits={limit.limitMinorUnits} largestGoalMinorUnits={largestGoal} />
+      <CouncilThresholdManager
+        configured={threshold.configured}
+        threshold={threshold.threshold}
+        councilMembers={threshold.councilMembers}
+        inFlight={threshold.inFlight}
+      />
     </main>
   );
 }

@@ -7,6 +7,11 @@ import {CampaignVault} from "../src/CampaignVault.sol";
 import {MilestoneManager} from "../src/MilestoneManager.sol";
 import {BeneficiaryRegistry} from "../src/BeneficiaryRegistry.sol";
 
+/// @title BeneficiaryRegistryTest
+/// @notice Tests for BeneficiaryRegistry: only a campaign's organizer can register an identity
+///         hash, each hash registers once per campaign (the same hash is fine in another
+///         campaign), zero hashes and non-vault addresses are refused, and the index counts up.
+/// @dev Includes two fuzz tests: distinct hashes always count exactly, repeats never raise it.
 contract BeneficiaryRegistryTest is Test {
     MockINR token;
     MilestoneManager mgr;

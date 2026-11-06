@@ -18,6 +18,7 @@ const disbursementAbi = parseAbi([
   "error MilestoneNotReleased()",
   "error MilestoneAlreadyDisbursed()",
   "error BeneficiaryNotRegistered()",
+  "error BeneficiaryNotVerified()", // DisbursementV2 (C6)
   "error ZeroAmount()",
   "error MissingPayoutReference()",
   "error ExceedsReleased(uint256 requested, uint256 available)",
@@ -49,6 +50,7 @@ const REASONS: Record<string, string> = {
   MilestoneNotReleased: "This milestone has not been released yet.",
   MilestoneAlreadyDisbursed: "This milestone's payout has already been recorded.",
   BeneficiaryNotRegistered: "That beneficiary is not registered for this campaign.",
+  BeneficiaryNotVerified: "That beneficiary has not been confirmed by enough independent attestors on the blockchain yet.",
   ZeroAmount: "A payout needs an amount.",
   MissingPayoutReference: "A payout needs an off-ramp reference.",
   ExceedsReleased: "The payout is more than this campaign has released and not yet paid out.",

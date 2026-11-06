@@ -58,8 +58,11 @@ contract CampaignFactory is Ownable {
     CampaignRecord[] private _campaigns;
     mapping(address => uint256[]) private _campaignIndexesByOrganizer;
 
+    /// @notice An organizer's verified status was set or cleared by the owner.
     event OrganizerVerifiedSet(address indexed organizer, bool verified);
+    /// @notice The owner set the milestone manager that new vaults bind to.
     event MilestoneManagerSet(address indexed manager);
+    /// @notice A verified organizer created a campaign and its vault.
     event CampaignCreated(
         uint256 indexed campaignId,
         address indexed organizer,
@@ -68,13 +71,21 @@ contract CampaignFactory is Ownable {
         uint256 fundingGoal
     );
 
+    /// @notice The caller is not a verified organizer.
     error OrganizerNotVerified(address organizer);
+    /// @notice The requested admin-expense cap is above the category's ceiling.
     error AdminCapExceeded(uint256 requestedPct, uint256 ceilingPct);
+    /// @notice The milestone percentages do not add up to exactly 100.
     error MilestonesDoNotSumTo100(uint256 actualSum);
+    /// @notice A campaign needs at least one milestone.
     error NoMilestones();
+    /// @notice No milestone manager is set yet, so vaults cannot be created.
     error MilestoneManagerNotConfigured();
+    /// @notice A required address was the zero address.
     error ZeroAddress();
+    /// @notice The deadline is not in the future or is beyond the maximum.
     error InvalidDeadline(uint64 deadline);
+    /// @notice The inactivity window is zero or beyond the maximum.
     error InvalidInactivityWindow(uint64 window);
 
     constructor(address _mockToken) Ownable(msg.sender) {

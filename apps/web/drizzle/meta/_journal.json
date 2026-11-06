@@ -71,6 +71,20 @@
       "when": 1792956325809,
       "tag": "0009_campaign_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793948018786,
+      "tag": "0010_beneficiary_attestations",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793949927352,
+      "tag": "0011_beneficiary_attestation_chain",
+      "breakpoints": true
     }
   ]
 }

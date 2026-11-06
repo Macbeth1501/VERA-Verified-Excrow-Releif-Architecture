@@ -16,6 +16,7 @@ const NOTE = "mt-8 max-w-[62ch] rounded-md bg-warn-wash px-4 py-3 text-sm text-w
 const STATUS_TONE = { CONFIRMED: "text-ok", PENDING: "text-warn", FAILED: "text-bad" } as const;
 const STATUS_DOT = { CONFIRMED: "bg-ok", PENDING: "border border-warn", FAILED: "bg-bad" } as const;
 
+/** Beneficiary registration page for one campaign. Visible to the campaign owner or an admin; shows each beneficiary's on-chain registration status and the form to add one. */
 export default async function BeneficiariesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { db, user } = await requirePageUser();
@@ -68,6 +69,13 @@ export default async function BeneficiariesPage({ params }: { params: Promise<{ 
                         {STATUS_COPY[b.status]}
                       </span>
                     </div>
+                    {b.status === "CONFIRMED" ? (
+                      <p className={`mt-1 font-medium ${b.verified ? "text-ok" : "text-warn"}`} data-testid="beneficiary-verification">
+                        {b.verified
+                          ? `Verified by ${b.attestations} attestor${b.attestations === 1 ? "" : "s"}`
+                          : `Not yet verified (${b.attestations} of ${b.requiredAttestations} attestors). Payouts to this person wait for an attestor to confirm them.`}
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-dim">
                       Paid by: {b.payoutMethod}
                       {b.txHash?.startsWith("0x") ? (

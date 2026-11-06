@@ -1,3 +1,5 @@
+/** Integration tests for the campaign routes: the verified-organizer gate, server-side validation, creating and reading campaigns, and deploying the vault on-chain. */
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetEnvCache } from "@/lib/env";

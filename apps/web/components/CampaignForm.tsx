@@ -26,7 +26,8 @@ const inputClass =
   "mt-1.5 w-full rounded-md border border-rule-strong bg-well px-3 py-2.5 text-ink focus:border-copper";
 const labelClass = "text-sm font-medium text-ink";
 
-export function CampaignForm() {
+/** Campaign creation form. Saves the campaign first, then publishes it on-chain and registers its milestones as separate calls, so a slow or failing chain never loses the saved campaign; finally routes to the campaign's dashboard page. */
+export function CampaignForm({ attestorCount = null }: { attestorCount?: number | null }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -77,6 +78,16 @@ export function CampaignForm() {
       const fieldErrors = parsed.error.flatten().fieldErrors as FieldErrors;
       if (!rupeesToMinorUnits(goal)) fieldErrors.fundingGoalMinorUnits = ["Enter a funding goal greater than zero"];
       setErrors(fieldErrors);
+      return;
+    }
+    if (attestorCount !== null && body.milestones.some((m) => m.requiredAttestations > attestorCount)) {
+      setErrors({
+        milestones: [
+          attestorCount === 0
+            ? "No attestors are registered yet; ask an admin to add some before creating a campaign."
+            : `Only ${attestorCount} attestor${attestorCount === 1 ? " is" : "s are"} registered; ask an admin to add more or lower this number.`,
+        ],
+      });
       return;
     }
 
@@ -265,6 +276,11 @@ export function CampaignForm() {
                       onChange={(e) => updateRow(index, { requiredAttestations: e.target.value })}
                       className={inputClass}
                     />
+                    {attestorCount !== null ? (
+                      <p data-testid="attestor-count" className="mt-1 text-sm text-dim">
+                        {attestorCount} attestor{attestorCount === 1 ? " is" : "s are"} registered.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>

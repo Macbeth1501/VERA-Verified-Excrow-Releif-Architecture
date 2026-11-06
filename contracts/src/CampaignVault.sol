@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 /// @notice The slice of MilestoneManager the vault reads to know whether the work is finished.
 interface IMilestoneProgress {
+    /// @notice Cumulative percentage of the campaign's milestones already released.
     function releasedPct(address vault) external view returns (uint256);
 }
 
@@ -63,31 +64,51 @@ contract CampaignVault is ReentrancyGuard {
     mapping(address donor => uint256) public donatedBy;
     mapping(address donor => bool) public refundClaimed;
 
+    /// @notice A donor deposited funds; newBalance is the vault balance afterwards.
     event DonationReceived(address indexed donor, uint256 amount, uint256 newBalance);
+    /// @notice The organizer raised the demonstration freeze, with its disclosed reason.
     event FreezeRaised(string reason);
+    /// @notice The organizer lifted the demonstration freeze.
     event FreezeLifted();
+    /// @notice The campaign was closed for the given reason; refundPool is what donors share.
     event CampaignClosed(CloseReason reason, uint256 refundPool);
+    /// @notice A donor claimed their refund share; newBalance is the vault balance afterwards.
     event RefundClaimed(address indexed donor, uint256 amount, uint256 newBalance);
 
+    /// @notice The amount must be greater than zero.
     error ZeroAmount();
+    /// @notice A required address was the zero address.
     error ZeroAddress();
+    /// @notice Only the milestone manager may release funds.
     error NotMilestoneManager();
+    /// @notice Deposits and releases are blocked while the freeze is on.
     error VaultPaused();
+    /// @notice A release asked for more than the vault holds.
     error InsufficientVaultBalance(uint256 requested, uint256 available);
+    /// @notice The deadline is not in the future, or the inactivity window is zero.
     error InvalidSchedule();
+    /// @notice The campaign is closed, so deposits and releases are refused.
     error CampaignIsClosed();
+    /// @notice The deadline has passed, so donations are no longer accepted.
     error DonationsClosed();
+    /// @notice No closing condition (deadline, inactivity or completion) is met yet.
     error CannotCloseYet();
+    /// @notice The campaign is already closed.
     error AlreadyClosed();
+    /// @notice The vault holds nothing, so closing it would leave nothing to refund.
     error NothingToRefund();
+    /// @notice Refunds can only be claimed after the campaign is closed.
     error NotClosed();
+    /// @notice The caller has no refund to claim.
     error NoRefundDue();
 
+    /// @notice Restricts a function to the milestone manager.
     modifier onlyMilestoneManager() {
         if (msg.sender != milestoneManager) revert NotMilestoneManager();
         _;
     }
 
+    /// @notice Blocks a function while the freeze is on.
     modifier whenNotPaused() {
         if (paused) revert VaultPaused();
         _;
@@ -201,6 +222,7 @@ contract CampaignVault is ReentrancyGuard {
         emit RefundClaimed(msg.sender, amount, _balance);
     }
 
+    /// @notice True once the milestone manager reports 100% of milestones released.
     function _allReleased() private view returns (bool) {
         if (milestoneManager.code.length == 0) return false;
         return IMilestoneProgress(milestoneManager).releasedPct(address(this)) == 100;
@@ -217,6 +239,7 @@ contract CampaignVault is ReentrancyGuard {
         emit FreezeRaised(reason);
     }
 
+    /// @notice Lifts the demonstration freeze. Organizer only.
     function unpause() external {
         require(msg.sender == organizer, "only organizer");
         paused = false;

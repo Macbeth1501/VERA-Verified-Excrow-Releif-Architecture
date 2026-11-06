@@ -21,6 +21,7 @@ export interface PayoutState {
   allowance: string;
 }
 
+/** What the payout flow needs from the chain: whether it is configured, reading a payout's state, a transaction's outcome, and the two organizer-signed transactions (approve, then disburse). The real implementation is `lib/chain/disbursement.ts`; tests use an in-memory fake. */
 export interface DisbursementChain {
   /** False when the Disbursement or manager address, or the sponsor key, is missing. */
   configured(): boolean;

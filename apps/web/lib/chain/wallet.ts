@@ -1,5 +1,6 @@
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
+/** A freshly generated wallet: its address and the private key, which must be encrypted before storage. */
 export interface GeneratedWallet {
   address: `0x${string}`;
   privateKey: `0x${string}`;

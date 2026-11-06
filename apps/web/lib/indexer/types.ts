@@ -10,6 +10,7 @@ export type EventName =
   | "CouncilApproved"
   | "MilestoneReleased"
   | "BeneficiaryRegistered"
+  | "BeneficiaryAttested"
   | "PayoutRecorded";
 
 /** A decoded on-chain event, as read from a contract. Amounts are decimal strings. */
@@ -40,7 +41,7 @@ export interface ChainReader {
    */
   managerEvents?(fromBlock: number, toBlock: number): Promise<RawEvent[]>;
   /**
-   * BeneficiaryRegistered events from the BeneficiaryRegistry (each names its vault), inclusive block
+   * BeneficiaryRegistered (and, for the V2 registry, BeneficiaryAttested) events from the BeneficiaryRegistry (each names its vault), inclusive block
    * range. Optional: a reader without it indexes no beneficiary events.
    */
   registryEvents?(fromBlock: number, toBlock: number): Promise<RawEvent[]>;
@@ -57,6 +58,7 @@ export interface ChainReader {
   vaultBalancesAt(vault: string, block: number): Promise<{ tracked: bigint; token: bigint }>;
 }
 
+/** Indexer settings: first block to read per contract, how many confirmations to wait for and the most blocks to read in one request. */
 export interface IndexerConfig {
   startBlock: number;
   /** First block to read for the MilestoneManager; milestone events are skipped when unset. */

@@ -14,11 +14,13 @@ export const ACTIVITY_TYPES: readonly EventName[] = [
   "CouncilApproved",
   "MilestoneReleased",
   "BeneficiaryRegistered",
+  "BeneficiaryAttested",
   "PayoutRecorded",
   "CampaignClosed",
   "RefundClaimed",
 ];
 
+/** Short heading shown for each event type in the activity list. */
 export const ACTIVITY_TITLE: Record<EventName, string> = {
   CampaignCreated: "Campaign escrow created",
   DonationReceived: "Donation received",
@@ -28,6 +30,7 @@ export const ACTIVITY_TITLE: Record<EventName, string> = {
   CouncilApproved: "Council approval",
   MilestoneReleased: "Funds released",
   BeneficiaryRegistered: "Beneficiary registered",
+  BeneficiaryAttested: "Beneficiary confirmed by an attestor",
   PayoutRecorded: "Payout to a beneficiary",
   CampaignClosed: "Campaign closed",
   RefundClaimed: "Refund claimed",
@@ -41,6 +44,7 @@ export interface KnownContracts {
   disbursement?: string;
 }
 
+/** One row of the activity feed: the event, its plain-language sentence, the contract that emitted it and the transaction hash. */
 export interface ActivityRow {
   /** Unique per event: txHash:logIndex. */
   id: string;
@@ -65,6 +69,7 @@ export interface ActivityRow {
   txHash: string;
 }
 
+/** Filters and paging for `listActivity`: optional campaign id, event type, limit and offset. */
 export interface ActivityQuery {
   campaignId?: string;
   type?: EventName;
@@ -73,6 +78,7 @@ export interface ActivityQuery {
   offset?: number;
 }
 
+/** One page of activity rows plus the total count, the paging used and per-type counts for the summary. */
 export interface ActivityPage {
   rows: ActivityRow[];
   /** Events matching the filter, across all pages. */
@@ -90,6 +96,7 @@ const ACTOR_KEY: Partial<Record<EventName, string>> = {
   RefundClaimed: "donor",
   CampaignCreated: "organizer",
   MilestoneAttested: "attestor",
+  BeneficiaryAttested: "attestor",
   CouncilApproved: "member",
   MilestoneReleased: "recipient",
   PayoutRecorded: "organizer",
@@ -144,6 +151,8 @@ export function describeEvent(
       return `${amt} was released to the organizer${p.actor ? ` (${who})` : ""} for ${ms}${camp}.`;
     case "BeneficiaryRegistered":
       return `A beneficiary was registered${camp}. Only an anonymous fingerprint is stored, never their identity.`;
+    case "BeneficiaryAttested":
+      return `Attestor ${who} confirmed that a registered beneficiary exists${camp}. Only an anonymous fingerprint is stored, never their identity.`;
     case "PayoutRecorded":
       return `${amt} was paid to a registered beneficiary for ${ms}${camp}.`;
     case "CampaignClosed":
@@ -211,6 +220,7 @@ export function listActivity(db: Db, known: KnownContracts, query: ActivityQuery
   return { rows: events.map((e) => toRow(e, known, byVault)), total, limit, offset, countsByType };
 }
 
+/** Type guard: true when the value is one of the known indexed event names. */
 export function isEventName(value: string | null | undefined): value is EventName {
   return typeof value === "string" && (ACTIVITY_TYPES as readonly string[]).includes(value);
 }

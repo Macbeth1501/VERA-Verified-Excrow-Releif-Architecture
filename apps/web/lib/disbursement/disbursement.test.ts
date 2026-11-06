@@ -1,3 +1,5 @@
+/** Tests for recording payouts against the in-memory fake chain: the happy path, pre-checks before any gas is spent, chain misbehaviour, the simulated off-ramp reference and what the API accepts. */
+
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { keccak256, toBytes } from "viem";
@@ -7,7 +9,7 @@ import { findUserById } from "../auth/users";
 import { createCampaign, recordVaultDeploy, type CampaignWithMilestones } from "../campaigns/service";
 import { createPayoutReference, hashPayoutReference } from "../chain/mockOffRamp";
 import { createDb, type Db } from "../db";
-import { beneficiaries, disbursements, users } from "../db/schema";
+import { beneficiaries, beneficiaryAttestations, disbursements, users } from "../db/schema";
 import { VAULT, makeDonor, makeLiveCampaign } from "../donations/test-setup";
 import { FakeDisbursementChain } from "./fake-chain";
 import { disburseMilestone } from "./service";
@@ -31,6 +33,12 @@ function addBeneficiary(campaignId: string, identityHash = H1, chainStatus: "PEN
   return id;
 }
 
+/** An independent attestor confirms this beneficiary exists (C5: payouts need at least one). */
+async function verify(id: string) {
+  const attestor = await makeDonor(db);
+  db.insert(beneficiaryAttestations).values({ id: randomUUID(), beneficiaryId: id, attestorUserId: attestor.id }).run();
+}
+
 beforeEach(async () => {
   db = createDb(":memory:");
   chain = new FakeDisbursementChain();
@@ -41,6 +49,7 @@ beforeEach(async () => {
   stranger = await makeDonor(db);
   chain.organizer = organizer.walletAddress.toLowerCase();
   beneficiaryId = addBeneficiary(campaign.id);
+  await verify(beneficiaryId);
   chain.register(VAULT, H1);
   chain.release(VAULT, 0, RELEASED);
 });
@@ -50,6 +59,33 @@ const disburse = (amountMinorUnits = RELEASED.toString(), actor: Pick<PublicUser
 const rows = () => db.select().from(disbursements).all();
 const disburseSends = () => chain.sent.filter((s) => s.startsWith("disburse:"));
 const approveSends = () => chain.sent.filter((s) => s.startsWith("approve:"));
+
+describe("the verification gate (C5, an app-level rule)", () => {
+  const H9 = `0x${"99".repeat(32)}`;
+
+  it("refuses a payout to a registered but unverified beneficiary before any gas is spent, then allows it once verified", async () => {
+    const unverified = addBeneficiary(campaign.id, H9);
+    chain.register(VAULT, H9);
+    const refused = await disburse(undefined, organizer, milestoneId, unverified);
+    expect(!refused.ok && refused.code).toBe("BENEFICIARY_NOT_VERIFIED");
+    expect(!refused.ok && refused.status).toBe(409);
+    expect(!refused.ok && refused.message).toContain("0 of 1");
+    expect(chain.sent).toEqual([]);
+    expect(rows()).toEqual([]);
+
+    await verify(unverified);
+    const allowed = await disburse(undefined, organizer, milestoneId, unverified);
+    expect(allowed.ok && allowed.disbursement.status).toBe("CONFIRMED");
+  });
+
+  it("applies to admins acting for the organizer too", async () => {
+    const unverified = addBeneficiary(campaign.id, H9);
+    chain.register(VAULT, H9);
+    const r = await disburse(undefined, admin, milestoneId, unverified);
+    expect(!r.ok && r.code).toBe("BENEFICIARY_NOT_VERIFIED");
+    expect(chain.sent).toEqual([]);
+  });
+});
 
 describe("recording a payout", () => {
   it("approves then disburses, signed by the organizer, and saves both hashes and a reference", async () => {

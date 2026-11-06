@@ -1,13 +1,18 @@
+import { and, eq, isNotNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { BeneficiaryVerifyForm } from "@/components/BeneficiaryVerifyForm";
 import { MilestoneCard } from "@/components/MilestoneCard";
 import { PageHead } from "@/components/PageHead";
 import { requirePageUser } from "@/lib/campaigns/page-guard";
 import { escrowChain } from "@/lib/chain/manager";
+import { beneficiaryVerifiesOnChain } from "@/lib/beneficiary/verification";
+import { campaigns } from "@/lib/db/schema";
 import { listMilestoneViews, roleIsSynced } from "@/lib/escrow/service";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Attestor console | VERA" };
 
+/** Attestor console. Attestors only: lists milestones awaiting confirmation so an attestor can sign off that the work is done. */
 export default async function AttestorPage() {
   const { db, user } = await requirePageUser();
   if (user.role !== "attestor") redirect("/dashboard");
@@ -15,6 +20,12 @@ export default async function AttestorPage() {
   const chain = escrowChain();
   const synced = roleIsSynced(db, user.id, "attestor");
   const views = (await listMilestoneViews(db, chain)).filter((v) => v.definedOnChain && v.state?.status !== "Released");
+  const liveCampaigns = db
+    .select({ id: campaigns.id, title: campaigns.title })
+    .from(campaigns)
+    .where(and(eq(campaigns.status, "LIVE"), isNotNull(campaigns.vaultContractAddress)))
+    .all();
+  const onChain = beneficiaryVerifiesOnChain();
   const mine = (v: (typeof views)[number]) =>
     v.actions.some((a) => a.kind === "attestation" && a.status === "CONFIRMED" && a.actorAddress === user.walletAddress.toLowerCase());
 
@@ -40,6 +51,20 @@ export default async function AttestorPage() {
           ))}
         </ol>
       )}
+
+      <section className="mt-14" aria-labelledby="verify-heading">
+        <h2 id="verify-heading" className="border-b border-rule pb-3 text-2xl text-ink">
+          Verify beneficiaries
+        </h2>
+        <p className="mt-3 max-w-[62ch] text-sand">
+          An organizer can register people who do not exist. When you have met a beneficiary in person, confirm them here. A payout
+          to someone no attestor has confirmed is refused.{" "}
+          {onChain
+            ? "Your confirmation is also recorded on the blockchain from your own wallet, and the payout contract itself refuses anyone no attestor has confirmed."
+            : "This check is made by VERA's servers and database; the blockchain does not enforce it."}
+        </p>
+        <BeneficiaryVerifyForm campaigns={liveCampaigns} />
+      </section>
     </main>
   );
 }

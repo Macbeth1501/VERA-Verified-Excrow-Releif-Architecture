@@ -1,3 +1,5 @@
+/** Unit tests for email hashing and for encrypting and decrypting the generated wallet's key. */
+
 import { describe, expect, it } from "vitest";
 import { decryptSecret, encryptSecret, hashEmail, normalizeEmail } from "./crypto";
 

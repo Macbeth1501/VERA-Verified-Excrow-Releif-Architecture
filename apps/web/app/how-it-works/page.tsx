@@ -36,6 +36,7 @@ const CONTRACTS = [
 
 const H2 = "border-b border-rule pb-3 text-2xl text-ink";
 
+/** Static explainer page: who takes part, key terms in plain words, and what each smart contract does. */
 export default function HowItWorksPage() {
   return (
     <main className="w-full flex-1 py-12 lg:py-16">

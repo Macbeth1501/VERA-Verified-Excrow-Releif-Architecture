@@ -9,11 +9,13 @@ import { getPublicProfile } from "@/lib/organizers/service";
 
 export const dynamic = "force-dynamic";
 
+/** Sets the tab title from the organizer's legal name. */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const profile = getPublicProfile(getDb(), (await params).id);
   return { title: profile ? `${profile.legalName} | VERA` : "Organizer | VERA" };
 }
 
+/** Public organizer profile: legal name, verification status and the organizer's campaigns. Unknown ids return 404. */
 export default async function OrganizerPublicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const profile = getPublicProfile(getDb(), id);

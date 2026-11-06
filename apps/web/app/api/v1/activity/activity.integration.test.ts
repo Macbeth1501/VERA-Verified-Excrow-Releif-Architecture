@@ -1,3 +1,5 @@
+/** Integration tests for `GET /api/v1/activity`: the public feed of indexed on-chain events, its filters and paging. */
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetEnvCache } from "@/lib/env";
 import { getDb, resetDbForTests } from "@/lib/db";

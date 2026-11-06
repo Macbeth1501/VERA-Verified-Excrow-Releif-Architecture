@@ -31,6 +31,7 @@ const STATUS_COPY = {
   },
 } as const;
 
+/** Organizer onboarding/status page: the application form for new organizers, or the current verification status for those who have applied. Admins are sent to the admin console. */
 export default async function OrganizerPage() {
   const session = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (session === null) redirect("/login");

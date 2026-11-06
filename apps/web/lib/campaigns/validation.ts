@@ -3,10 +3,13 @@ import { CAMPAIGN_CATEGORIES, CATEGORY_LABEL, ceilingFor, type CampaignCategory 
 
 /** Milestone percentages must total exactly this (FR-CMP-01). */
 export const REQUIRED_MILESTONE_TOTAL = 100;
+/** Most milestones a campaign may define. */
 export const MAX_MILESTONES = 10;
 /** Matches CampaignFactory.MAX_DEADLINE (three years). */
 export const MAX_SCHEDULE_DAYS = 1095;
+/** Default campaign duration before it expires. */
 export const DEFAULT_DURATION_DAYS = 90;
+/** Default window of no donations after which a campaign may be closed. */
 export const DEFAULT_INACTIVITY_DAYS = 30;
 
 const milestoneSchema = z.object({
@@ -77,8 +80,10 @@ export const createCampaignSchema = baseSchema.superRefine((value, ctx) => {
   }
 });
 
+/** Validated campaign creation input. */
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
 
+/** Sum of the milestones' target percentages. */
 export function sumPct(milestones: Array<{ targetPct: number }>): number {
   return milestones.reduce((total, m) => total + (Number.isFinite(m.targetPct) ? m.targetPct : 0), 0);
 }

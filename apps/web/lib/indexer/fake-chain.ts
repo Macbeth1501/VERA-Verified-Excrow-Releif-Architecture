@@ -1,14 +1,21 @@
 import type { ChainReader, RawEvent } from "./types";
 
+/** Test-fixture address of the campaign factory. */
 export const FACTORY = "0x6931e776da5db1d9e5890407fe268705d70740bd";
+/** Test-fixture address of a first vault. */
 export const VAULT_A = "0x6590e3d9e42edb7e8970b9348ce457b9a2f990f7";
+/** Test-fixture address of a second vault. */
 export const VAULT_B = "0xbf4cbafe6d51866e9e01e1b74fe9c9c57d17ccb8";
+/** Test-fixture address of the milestone manager. */
 export const MANAGER = "0xe6d7222dde3ee4b9688269427631adf49229e747";
+/** Test-fixture donor address. */
 export const DONOR = "0x1111111111111111111111111111111111111111";
+/** Test-fixture organizer address. */
 export const ORGANIZER = "0x2222222222222222222222222222222222222222";
 
 let counter = 0;
 
+/** Builds a CampaignCreated event for a vault at a block. */
 export function created(vault: string, blockNumber: number): RawEvent {
   return {
     name: "CampaignCreated",
@@ -21,6 +28,7 @@ export function created(vault: string, blockNumber: number): RawEvent {
   };
 }
 
+/** Builds a DonationReceived event. */
 export function donation(vault: string, blockNumber: number, amount: string, logIndex = 0, txHash?: string): RawEvent {
   return {
     name: "DonationReceived",
@@ -33,6 +41,7 @@ export function donation(vault: string, blockNumber: number, amount: string, log
   };
 }
 
+/** Builds a CampaignClosed event with a close reason and refund pool. */
 export function closedEvent(vault: string, blockNumber: number, reason: 0 | 1 | 2, refundPool: string): RawEvent {
   return {
     name: "CampaignClosed",
@@ -45,6 +54,7 @@ export function closedEvent(vault: string, blockNumber: number, reason: 0 | 1 | 
   };
 }
 
+/** Builds a RefundClaimed event. */
 export function refunded(vault: string, blockNumber: number, amount: string, donor = DONOR): RawEvent {
   return {
     name: "RefundClaimed",
@@ -57,6 +67,7 @@ export function refunded(vault: string, blockNumber: number, amount: string, don
   };
 }
 
+/** Builds a MilestoneReleased event. */
 export function released(vault: string, blockNumber: number, amount: string, index = 0): RawEvent {
   return {
     name: "MilestoneReleased",
@@ -69,8 +80,10 @@ export function released(vault: string, blockNumber: number, amount: string, ind
   };
 }
 
+/** Test-fixture address of the beneficiary registry. */
 export const REGISTRY = "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9";
 
+/** Builds a BeneficiaryRegistered event. */
 export function beneficiary(vault: string, blockNumber: number, identityHash: string, index = 0): RawEvent {
   return {
     name: "BeneficiaryRegistered",
@@ -83,6 +96,20 @@ export function beneficiary(vault: string, blockNumber: number, identityHash: st
   };
 }
 
+/** Builds a BeneficiaryAttested event (the V2 registry, C6). */
+export function beneficiaryAttested(vault: string, blockNumber: number, identityHash: string, count = 1, attestor = "0x3333333333333333333333333333333333333333"): RawEvent {
+  return {
+    name: "BeneficiaryAttested",
+    contract: REGISTRY,
+    vault,
+    blockNumber,
+    txHash: `0xc${String(++counter).padStart(63, "0")}`,
+    logIndex: 0,
+    args: { vault, identityHash, attestor, count: String(count) },
+  };
+}
+
+/** Builds a MilestoneAttested event. */
 export function attested(vault: string, blockNumber: number, index = 0, attestor = "0x3333333333333333333333333333333333333333"): RawEvent {
   return {
     name: "MilestoneAttested",
@@ -95,8 +122,10 @@ export function attested(vault: string, blockNumber: number, index = 0, attestor
   };
 }
 
+/** Test-fixture address of the disbursement contract. */
 export const DISBURSEMENT = "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853";
 
+/** Builds a PayoutRecorded event. */
 export function payout(vault: string, blockNumber: number, amount: string, milestoneIndex = 0, identityHash = `0x${"a1".repeat(32)}`): RawEvent {
   return {
     name: "PayoutRecorded",
@@ -149,7 +178,7 @@ export class FakeChain implements ChainReader {
   }
 
   async registryEvents(from: number, to: number) {
-    return this.read("registry", from, to, (e) => e.name === "BeneficiaryRegistered");
+    return this.read("registry", from, to, (e) => e.name === "BeneficiaryRegistered" || e.name === "BeneficiaryAttested");
   }
 
   async disbursementEvents(from: number, to: number) {

@@ -5,10 +5,12 @@ import type { Db } from "../db";
 import { users } from "../db/schema";
 import { decide, submitApplication } from "../organizers/service";
 
+/** Fixed vault address used by the donation tests. */
 export const VAULT = "0x6590E3D9E42EDB7e8970b9348CE457b9a2f990F7";
 const ENC_KEY = "ab".repeat(32);
 let counter = 0;
 
+/** Test helper: registers a donor with a unique email, optionally with their own wallet address. */
 export async function makeDonor(db: Db, walletAddress?: `0x${string}`) {
   return registerDonor(
     db,

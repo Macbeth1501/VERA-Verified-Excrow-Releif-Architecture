@@ -8,6 +8,13 @@ import {MilestoneManager} from "../src/MilestoneManager.sol";
 import {BeneficiaryRegistry} from "../src/BeneficiaryRegistry.sol";
 import {Disbursement} from "../src/Disbursement.sol";
 
+/// @title DisbursementTest
+/// @notice Tests for Disbursement: a payout can only be recorded by the vault's organizer, for a
+///         released milestone, to a beneficiary registered for that same campaign, and never for
+///         more than the milestone released. Also covers partial payouts, double disbursement,
+///         zero amount or missing reference, a vault bound to another manager, and constructor
+///         zero-address checks.
+/// @dev Includes a fuzz test that total payouts never exceed the released amount.
 contract DisbursementTest is Test {
     MockINR token;
     MilestoneManager mgr;

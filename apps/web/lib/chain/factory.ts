@@ -8,6 +8,7 @@ const factoryAbi = parseAbi([
   "function isVerifiedOrganizer(address organizer) view returns (bool)",
 ]);
 
+/** Outcome of pushing an organizer's verification to the factory: sent (with the transaction hash), skipped because the chain is not configured, or failed. */
 export type ChainSyncResult =
   | { status: "synced"; txHash: string }
   | { status: "not_configured" }

@@ -6,12 +6,14 @@
  */
 export type ReceiptState = "pending" | "success" | "reverted";
 
+/** Whose wallet signs a donation transaction: the donor's address and their encrypted key. */
 export interface SendParams {
   donorAddress: string;
   /** AES-GCM encrypted key of the donor's generated wallet. */
   donorKeyEnc: string;
 }
 
+/** The donation flow's view of the chain: gas top-up, the simulated on-ramp mint, the optional fee, approve, deposit, receipt polling and deposit verification. */
 export interface DonationChain {
   /** Tops the donor's wallet up with POL for gas. `null` means no top-up was needed. */
   fundGas(donorAddress: string): Promise<{ txHash: string | null }>;

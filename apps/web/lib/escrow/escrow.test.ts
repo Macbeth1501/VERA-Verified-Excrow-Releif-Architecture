@@ -111,7 +111,7 @@ describe("defining milestones on the contract", () => {
   });
 
   it("adopts a definition that landed on-chain but was never recorded", async () => {
-    chain.milestones.set(VAULT, [{ targetPct: 100, required: 2, attestors: new Set(), approvers: new Set(), status: "Pending" }]);
+    chain.milestones.set(VAULT, [{ targetPct: 100, required: 2, attestors: new Set(), approvers: new Set(), status: "Pending", limit: chain.autoReleaseLimit }]);
     await define();
     expect(chain.sent).toHaveLength(0);
     expect(db.select().from(milestones).get()?.chainStatus).toBe("defined");

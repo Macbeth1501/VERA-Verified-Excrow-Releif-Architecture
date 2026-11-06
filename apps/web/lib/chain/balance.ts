@@ -2,6 +2,7 @@ import { createPublicClient, erc20Abi, fallback, http } from "viem";
 import { polygonAmoy } from "viem/chains";
 import { getEnv, parseRpcUrls } from "../env";
 
+/** Decimals of the mock-INR token: 6, so one rupee is 1,000,000 minor units. */
 export const MINR_DECIMALS = 6;
 
 /** Reads a wallet's mINR balance from Polygon Amoy, in the token's smallest unit. */

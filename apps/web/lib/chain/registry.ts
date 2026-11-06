@@ -10,9 +10,15 @@ import { gasPriceRefusal, topUpGas } from "./sponsor";
 const registryAbi = parseAbi([
   "function register(address vault, bytes32 identityHash, bytes32 photoHash) returns (uint256 index)",
   "function isRegistered(address vault, bytes32 identityHash) view returns (bool)",
+  // V2 registry only (C6); never called unless BENEFICIARY_REGISTRY_V2=1.
+  "function attestBeneficiary(address vault, bytes32 identityHash)",
   "error NotVaultOrganizer()",
   "error ZeroIdentityHash()",
   "error DuplicateBeneficiary(address vault, bytes32 identityHash)",
+  "error NotAttestor()",
+  "error OrganizerCannotAttest()",
+  "error BeneficiaryNotRegistered(address vault, bytes32 identityHash)",
+  "error AlreadyAttested()",
 ]);
 
 /** Used only if gas estimation is refused. A registration costs roughly 70,000 gas. */
@@ -23,6 +29,10 @@ const REASONS: Record<string, string> = {
   NotVaultOrganizer: "Only the campaign's organizer can register beneficiaries.",
   ZeroIdentityHash: "A beneficiary needs an identity fingerprint.",
   DuplicateBeneficiary: "This beneficiary is already registered for this campaign.",
+  NotAttestor: "This wallet is not registered as an attestor on the contract.",
+  OrganizerCannotAttest: "A campaign's organizer cannot confirm its own beneficiaries.",
+  BeneficiaryNotRegistered: "That beneficiary is not registered for this campaign.",
+  AlreadyAttested: "This attestor has already confirmed this beneficiary.",
 };
 
 function transport() {
@@ -50,6 +60,46 @@ export function createBeneficiaryChain(): BeneficiaryChain {
   const registry = env.BENEFICIARY_REGISTRY_ADDRESS as `0x${string}` | undefined;
   const publicClient = createPublicClient({ chain: polygonAmoy, transport: transport() });
 
+  /**
+   * Simulates, funds the signer's gas from the sponsor, sends from the signer's own wallet, saves the
+   * hash, then waits. A failure after sending stays "pending", never failed.
+   */
+  async function sendAs(
+    signer: Signer,
+    functionName: "register" | "attestBeneficiary",
+    args: readonly unknown[],
+    onSent: OnSent,
+  ): Promise<Tx> {
+    if (!registry) return { ok: false, error: "The beneficiary registry is not configured." };
+    let hash: `0x${string}` | undefined;
+    try {
+      const account = privateKeyToAccount(decryptSecret(signer.keyEnc, env.WALLET_ENCRYPTION_KEY) as `0x${string}`);
+      if (account.address.toLowerCase() !== signer.address.toLowerCase()) {
+        return { ok: false, error: "The stored wallet key does not match this account's address." };
+      }
+      // Fail with the contract's own reason before spending any gas.
+      await publicClient.simulateContract({ address: registry, abi: registryAbi, functionName, args: args as never, account });
+
+      const gas = await publicClient
+        .estimateContractGas({ address: registry, abi: registryAbi, functionName, args: args as never, account })
+        .catch(() => FALLBACK_GAS);
+      const gasPrice = await publicClient.getGasPrice();
+      const tooExpensive = gasPriceRefusal(gasPrice);
+      if (tooExpensive) return { ok: false, error: tooExpensive };
+      // Fund above the limit's max cost (the node checks against maxFeePerGas): same 1.5x / 1.2x pair as manager.ts.
+      const funded = await topUpGas(signer.address, (gas * gasPrice * 15n) / 10n, { wait: true });
+      if (!funded.ok) return { ok: false, error: funded.error };
+
+      const wallet = createWalletClient({ account, chain: polygonAmoy, transport: transport() });
+      hash = await wallet.writeContract({ address: registry, abi: registryAbi, functionName, args: args as never, gas: (gas * 12n) / 10n });
+      onSent(hash);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
+      return receipt.status === "success" ? { ok: true, txHash: hash } : { ok: false, error: "The transaction was reverted by the contract." };
+    } catch (err) {
+      return hash ? { ok: false, error: explainRegistryError(err), pending: true } : { ok: false, error: explainRegistryError(err) };
+    }
+  }
+
   return {
     configured: () => Boolean(registry && env.FACTORY_OWNER_KEY),
 
@@ -76,37 +126,11 @@ export function createBeneficiaryChain(): BeneficiaryChain {
       }
     },
 
-    async register(signer: Signer, vault: string, identityHash: string, photoHash: string, onSent: OnSent): Promise<Tx> {
-      if (!registry) return { ok: false, error: "The beneficiary registry is not configured." };
-      const args = [vault as `0x${string}`, identityHash as `0x${string}`, photoHash as `0x${string}`] as const;
-      let hash: `0x${string}` | undefined;
-      try {
-        const account = privateKeyToAccount(decryptSecret(signer.keyEnc, env.WALLET_ENCRYPTION_KEY) as `0x${string}`);
-        if (account.address.toLowerCase() !== signer.address.toLowerCase()) {
-          return { ok: false, error: "The stored wallet key does not match this account's address." };
-        }
-        // Fail with the contract's own reason before spending any gas.
-        await publicClient.simulateContract({ address: registry, abi: registryAbi, functionName: "register", args, account });
+    register: (signer: Signer, vault: string, identityHash: string, photoHash: string, onSent: OnSent): Promise<Tx> =>
+      sendAs(signer, "register", [vault as `0x${string}`, identityHash as `0x${string}`, photoHash as `0x${string}`], onSent),
 
-        const gas = await publicClient
-          .estimateContractGas({ address: registry, abi: registryAbi, functionName: "register", args, account })
-          .catch(() => FALLBACK_GAS);
-        const gasPrice = await publicClient.getGasPrice();
-        const tooExpensive = gasPriceRefusal(gasPrice);
-        if (tooExpensive) return { ok: false, error: tooExpensive };
-        // Fund above the limit's max cost (the node checks against maxFeePerGas): same 1.5x / 1.2x pair as manager.ts.
-        const funded = await topUpGas(signer.address, (gas * gasPrice * 15n) / 10n, { wait: true });
-        if (!funded.ok) return { ok: false, error: funded.error };
-
-        const wallet = createWalletClient({ account, chain: polygonAmoy, transport: transport() });
-        hash = await wallet.writeContract({ address: registry, abi: registryAbi, functionName: "register", args, gas: (gas * 12n) / 10n });
-        onSent(hash);
-        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
-        return receipt.status === "success" ? { ok: true, txHash: hash } : { ok: false, error: "The transaction was reverted by the contract." };
-      } catch (err) {
-        return hash ? { ok: false, error: explainRegistryError(err), pending: true } : { ok: false, error: explainRegistryError(err) };
-      }
-    },
+    attest: (signer: Signer, vault: string, identityHash: string, onSent: OnSent): Promise<Tx> =>
+      sendAs(signer, "attestBeneficiary", [vault as `0x${string}`, identityHash as `0x${string}`], onSent),
   };
 }
 

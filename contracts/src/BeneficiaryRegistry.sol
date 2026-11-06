@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 /// @notice The slice of CampaignVault this contract uses.
 interface IVaultOrganizer {
+    /// @notice The organizer who owns the vault.
     function organizer() external view returns (address);
 }
 
@@ -30,8 +31,11 @@ contract BeneficiaryRegistry {
     /// @notice `photoHash` is an optional fingerprint of a photo (zero when none was given).
     event BeneficiaryRegistered(address indexed vault, bytes32 indexed identityHash, bytes32 photoHash, uint256 index);
 
+    /// @notice Only the vault's own organizer may register beneficiaries for it.
     error NotVaultOrganizer();
+    /// @notice An identity fingerprint of zero is not a valid registration.
     error ZeroIdentityHash();
+    /// @notice This fingerprint is already registered for this vault.
     error DuplicateBeneficiary(address vault, bytes32 identityHash);
 
     /// @notice Registers one unique beneficiary for the campaign, signed by the campaign's organizer.

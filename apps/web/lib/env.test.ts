@@ -1,3 +1,5 @@
+/** Unit tests for environment validation: contract address configuration and the platform fee settings. */
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getEnv, resetEnvCache } from "./env";
 

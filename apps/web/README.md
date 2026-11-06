@@ -2,12 +2,12 @@
 
 The full-stack Next.js app for VERA (Verified Escrow & Relief Architecture), a testnet proof-of-concept for milestone-gated escrow crowdfunding. The pages and the API routes (the backend) live in one app.
 
-For what is built, what is next, and how everything fits together, read [`docs/PROGRESS_LOG.md`](../../docs/PROGRESS_LOG.md) and [`CLAUDE.md`](../../CLAUDE.md) at the repository root. The design source of truth is [`docs/VERA_MVP_SPDD.md`](../../docs/VERA_MVP_SPDD.md).
+For what is built, what is next, and how everything fits together, read [`docs/PROGRESS_LOG.md`](../../docs/PROGRESS_LOG.md) and [`docs/CLAUDE.md`](../../docs/CLAUDE.md). The design source of truth is [`docs/VERA_MVP_SPDD.md`](../../docs/VERA_MVP_SPDD.md).
 
 ## What it does
 
-- **Donors:** register with an email (a testnet wallet is created for you), see a live balance, and donate to campaigns. Donations are several on-chain steps; the page shows honest progress and never calls a donation complete until the chain confirms it.
-- **Organizers:** apply for verification, get approved by an admin, create campaigns with milestones, and publish each campaign to its own on-chain escrow vault.
+- **Donors:** register with an email (a testnet wallet is created for you), see a live balance, and donate to campaigns. Donations are several on-chain steps; the page shows honest progress and never calls a donation complete until the chain confirms it. If a campaign passes its end date or goes quiet, anyone can close it and each donor claims their share back.
+- **Organizers:** apply for verification, get approved by an admin, create campaigns with milestones, and publish each campaign to its own on-chain escrow vault. Each campaign has an end date and an inactivity period.
 - **Attestors and the council:** an admin makes accounts attestors or council members. Attestors confirm that a milestone is done by choosing the evidence, hashed in the browser (the hash is what goes on-chain) and uploaded, so an admin/attestor/council viewer can later open exactly what was reviewed. Council members approve large payouts. The organizer, a council member or an admin then triggers the release. Everything is sent from the person's own wallet and counted by the contract.
 - **Organizers (KYB):** the supporting document is likewise hashed and uploaded; an admin can open it from the admin console before approving.
 - **Beneficiaries and payouts:** the organizer registers each beneficiary as a salted fingerprint (their real identity never reaches the server), and, once a milestone is released, records a payout to one of them — publicly visible on the campaign page.
@@ -69,7 +69,7 @@ pnpm db:generate # create a SQL migration after editing lib/db/schema.ts
 - `/activity` is the public Chain activity timeline (all indexed on-chain events, filterable, with explorer links); API `GET /api/v1/activity`
 - `app/` pages and `app/api/v1/` route handlers (`/dashboard` sends each role to its own workspace; `components/SiteNav.tsx` is the role-aware navigation and warns when another window of the same browser signs in as someone else)
 - `components/` client components (forms, the live dashboard, donation progress) and shared layout pieces (`PageHead`, `StageRail`)
-- `lib/` the logic, grouped by area: `auth`, `organizers`, `campaigns`, `indexer`, `donations`, `escrow` (attestation, council, release), `beneficiary`, `disbursement`, `files` (uploaded KYB/evidence documents), `chain` (everything that touches the blockchain), `db`, `api`
+- `lib/` the logic, grouped by area: `auth`, `organizers`, `campaigns`, `indexer`, `donations`, `escrow` (attestation, council, release), `beneficiary`, `disbursement`, `expiry` (close and refund), `files` (uploaded KYB/evidence documents), `chain` (everything that touches the blockchain), `db`, `api`
 - `drizzle/` forward-only SQL migrations
 
 ### Design

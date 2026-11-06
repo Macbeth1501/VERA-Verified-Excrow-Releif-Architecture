@@ -3,7 +3,9 @@ import { readJson, requireUser } from "@/lib/api/guards";
 import { allow } from "@/lib/api/rate-limit";
 import { createCampaign, listByOrganizer } from "@/lib/campaigns/service";
 import { createCampaignSchema } from "@/lib/campaigns/validation";
+import { escrowChain } from "@/lib/chain/manager";
 import { getDb } from "@/lib/db";
+import { attestationShortfalls, countSyncedRole } from "@/lib/escrow/service";
 import { OrganizerNotVerifiedError, getProfileByUser, requireVerifiedOrganizer } from "@/lib/organizers/service";
 
 /**
@@ -42,6 +44,15 @@ export async function POST(request: Request) {
   const parsed = createCampaignSchema.safeParse(json.body);
   if (!parsed.success) {
     return apiError(400, "VALIDATION_FAILED", "Please check the highlighted fields.", parsed.error.flatten().fieldErrors);
+  }
+
+  // C3: only enforceable when the contract's attestor list is mirrored in the app (escrow configured).
+  if (escrowChain().configured()) {
+    const shortfalls = attestationShortfalls(parsed.data.milestones, countSyncedRole(db, "attestor"));
+    if (Object.keys(shortfalls).length > 0) {
+      const first = Object.values(shortfalls)[0];
+      return apiError(422, "VALIDATION_FAILED", first, { milestones: Object.values(shortfalls) });
+    }
   }
 
   try {

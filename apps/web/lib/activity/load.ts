@@ -5,6 +5,7 @@ import { indexerStatus } from "../indexer/queries";
 import { syncWithinBudget, type IndexerRuntime } from "../indexer/runtime";
 import { listActivity, type ActivityPage, type ActivityQuery, type KnownContracts } from "./activity";
 
+/** An activity page together with the indexer's state (configured, head block, lag, freshness) and the known contract addresses, so callers can say how fresh the data is. */
 export interface ActivityData extends ActivityPage {
   indexer: {
     configured: boolean;

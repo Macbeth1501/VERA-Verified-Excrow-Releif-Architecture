@@ -5,6 +5,7 @@ import { getCampaign, ownerUserId } from "../campaigns/service";
 import type { Db } from "../db";
 import { beneficiaries, campaignSalts, type BeneficiaryRow } from "../db/schema";
 import type { BeneficiaryChain } from "./chain-port";
+import { attestationCount, attestationCounts, beneficiaryRequiredAttestations } from "./verification";
 
 /**
  * Beneficiary registration (Step 13, FR-IDN-03). The organizer (or an admin acting for them) sends a
@@ -14,6 +15,7 @@ import type { BeneficiaryChain } from "./chain-port";
  * a duplicate). Only hashes are handled here: there is no raw identity data anywhere to store or log.
  */
 
+/** A refused beneficiary operation: HTTP status, enumerable error code and a message safe to show. */
 export type BeneficiaryFailure = {
   ok: false;
   status: number;
@@ -24,13 +26,17 @@ export type BeneficiaryFailure = {
     | "REGISTRY_NOT_CONFIGURED"
     | "DUPLICATE_BENEFICIARY"
     | "REGISTRATION_PENDING"
+    | "ALREADY_ATTESTED"
+    | "ATTESTATION_PENDING"
+    | "VALIDATION_FAILED"
     | "CHAIN_FAILED";
   message: string;
 };
 
+/** Result of a beneficiary operation: `{ ok: true, ...data }` on success, a `BeneficiaryFailure` otherwise. */
 export type Outcome<T> = ({ ok: true } & T) | BeneficiaryFailure;
 
-const fail = (status: number, code: BeneficiaryFailure["code"], message: string): BeneficiaryFailure => ({ ok: false, status, code, message });
+export const fail = (status: number, code: BeneficiaryFailure["code"], message: string): BeneficiaryFailure => ({ ok: false, status, code, message });
 
 /** Sent to the registry when no photo fingerprint was given. */
 export const NO_PHOTO = `0x${"0".repeat(64)}`;
@@ -47,9 +53,14 @@ export interface BeneficiaryView {
   txHash: string | null;
   error: string | null;
   createdAt: string;
+  /** Distinct attestors who confirmed this person exists (C5). Derived, never stored. */
+  attestations: number;
+  /** Attestors needed before a payout to them is allowed. */
+  requiredAttestations: number;
+  verified: boolean;
 }
 
-const viewOf = (b: BeneficiaryRow): BeneficiaryView => ({
+const viewOf = (b: BeneficiaryRow, attestations = 0, required = beneficiaryRequiredAttestations()): BeneficiaryView => ({
   id: b.id,
   identityHash: b.identityHash,
   photoHash: b.photoHash,
@@ -58,6 +69,9 @@ const viewOf = (b: BeneficiaryRow): BeneficiaryView => ({
   txHash: b.chainTxHash,
   error: b.chainError,
   createdAt: b.createdAt,
+  attestations,
+  requiredAttestations: required,
+  verified: attestations >= required,
 });
 
 interface Context {
@@ -82,18 +96,29 @@ function authorize(db: Db, actor: Pick<PublicUser, "id" | "role">, campaignId: s
  * existed before this feature get one too). Handed only to the campaign's organizer or an admin.
  */
 export function getProgramSalt(db: Db, actor: Pick<PublicUser, "id" | "role">, campaignId: string): Outcome<{ salt: string }> {
-  const ctx = authorize(db, actor, campaignId);
-  if (!ctx.ok) return ctx;
+  if (actor.role === "attestor") {
+    // C5: an attestor needs the salt to fingerprint a person they met, in their own browser. The salt
+    // is not secret from them by design (see PROGRESS_LOG): a repeat guess is rate-limited instead.
+    const campaign = getCampaign(db, campaignId);
+    if (!campaign) return fail(404, "CAMPAIGN_NOT_FOUND", "Campaign not found.");
+    if (campaign.status !== "LIVE" || !campaign.vaultContractAddress) return fail(409, "CAMPAIGN_NOT_LIVE", "This campaign is not live.");
+  } else {
+    const ctx = authorize(db, actor, campaignId);
+    if (!ctx.ok) return ctx;
+  }
   db.insert(campaignSalts).values({ campaignId, salt: randomBytes(16).toString("hex") }).onConflictDoNothing().run();
   const row = db.select().from(campaignSalts).where(eq(campaignSalts.campaignId, campaignId)).get();
   return row ? { ok: true, salt: row.salt } : fail(404, "CAMPAIGN_NOT_FOUND", "Campaign not found.");
 }
 
+/** Lists a campaign's beneficiaries (hashes and registration status only) for its organizer or an admin. */
 export function listBeneficiaries(db: Db, actor: Pick<PublicUser, "id" | "role">, campaignId: string): Outcome<{ beneficiaries: BeneficiaryView[] }> {
   const ctx = authorize(db, actor, campaignId);
   if (!ctx.ok) return ctx;
   const rows = db.select().from(beneficiaries).where(eq(beneficiaries.campaignId, campaignId)).orderBy(asc(beneficiaries.createdAt)).all();
-  return { ok: true, beneficiaries: rows.map(viewOf) };
+  const counts = attestationCounts(db, rows.map((r) => r.id));
+  const required = beneficiaryRequiredAttestations();
+  return { ok: true, beneficiaries: rows.map((r) => viewOf(r, counts.get(r.id) ?? 0, required)) };
 }
 
 const DUPLICATE = () => fail(409, "DUPLICATE_BENEFICIARY", "This beneficiary is already registered for this campaign.");
@@ -132,7 +157,7 @@ export async function registerBeneficiary(
   const photoHash = input.photoHash?.toLowerCase() ?? null;
   const rowKey = and(eq(beneficiaries.campaignId, input.campaignId), eq(beneficiaries.identityHash, identityHash));
   const settle = (id: string, set: Partial<BeneficiaryRow>) => db.update(beneficiaries).set(set).where(eq(beneficiaries.id, id)).run();
-  const reload = (id: string) => viewOf(db.select().from(beneficiaries).where(eq(beneficiaries.id, id)).get()!);
+  const reload = (id: string) => viewOf(db.select().from(beneficiaries).where(eq(beneficiaries.id, id)).get()!, attestationCount(db, id));
 
   const existing = db.select().from(beneficiaries).where(rowKey).get();
   if (existing?.chainStatus === "CONFIRMED") return DUPLICATE();

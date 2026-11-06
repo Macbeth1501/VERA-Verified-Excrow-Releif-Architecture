@@ -16,6 +16,7 @@ import {
   type Outcome,
 } from "./service";
 
+/** A milestone resolved and ready to act on (context plus current view), or the failure that stopped it. */
 export type Prepared = { ok: true; ctx: MilestoneContext; view: MilestoneView } | Extract<Outcome<object>, { ok: false }>;
 
 /**

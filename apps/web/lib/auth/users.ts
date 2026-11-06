@@ -18,6 +18,7 @@ export interface PublicUser {
   createdAt: string;
 }
 
+/** Strips a user row down to the fields that may leave the server. */
 export function toPublicUser(row: UserRow): PublicUser {
   return {
     id: row.id,
@@ -29,12 +30,14 @@ export function toPublicUser(row: UserRow): PublicUser {
   };
 }
 
+/** Thrown when registering an email that already has an account. */
 export class EmailAlreadyRegisteredError extends Error {
   constructor() {
     super("An account with this email already exists");
   }
 }
 
+/** Thrown for an unknown email or wrong password; deliberately the same error for both. */
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("Incorrect email or password");
@@ -104,6 +107,7 @@ export async function authenticate(db: Db, input: LoginInput): Promise<PublicUse
   return toPublicUser(row);
 }
 
+/** Looks up a user by id, or null if none exists. */
 export function findUserById(db: Db, id: string): PublicUser | null {
   const row = db.select().from(users).where(eq(users.id, id)).get();
   return row ? toPublicUser(row) : null;

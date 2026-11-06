@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
+/** Posts to `/api/v1/auth/logout` to end the session, then returns to the home page. */
 export function LogoutButton() {
   const router = useRouter();
   return (

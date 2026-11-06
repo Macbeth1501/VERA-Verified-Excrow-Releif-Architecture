@@ -6,6 +6,8 @@ interface FakeMilestone {
   attestors: Set<string>;
   approvers: Set<string>;
   status: ChainStatus;
+  /** The auto-release limit when this milestone was defined; later changes never touch it (as on the contract). */
+  limit: bigint;
 }
 
 /**
@@ -51,7 +53,7 @@ export class FakeEscrowChain implements EscrowChain {
       requiredAttestations: m.required,
       councilApprovals: m.approvers.size,
       councilThreshold: this.councilThreshold,
-      autoReleaseLimit: this.autoReleaseLimit.toString(),
+      autoReleaseLimit: m.limit.toString(),
       releasableAmount: this.payout.toString(),
     };
   }
@@ -81,7 +83,7 @@ export class FakeEscrowChain implements EscrowChain {
     const failed = this.send(`define:${vault}:${targetPct}`, onSent);
     if (failed && !failed.ok && !failed.pending) return failed;
     const list = this.milestones.get(vault) ?? [];
-    list.push({ targetPct, required, attestors: new Set(), approvers: new Set(), status: "Pending" });
+    list.push({ targetPct, required, attestors: new Set(), approvers: new Set(), status: "Pending", limit: this.autoReleaseLimit });
     this.milestones.set(vault, list);
     return failed ?? { ok: true, txHash: `0xdefine${list.length}` };
   }
@@ -117,13 +119,37 @@ export class FakeEscrowChain implements EscrowChain {
     const m = list[index];
     if (!m || m.status !== "Verified") return { ok: false, error: "This milestone has not reached its required number of confirmations yet." };
     if (list.slice(0, index).some((x) => x.status !== "Released")) return { ok: false, error: "Earlier milestones must be released first." };
-    if (this.payout > this.autoReleaseLimit && m.approvers.size < this.councilThreshold) {
+    if (this.payout > m.limit && m.approvers.size < this.councilThreshold) {
       return { ok: false, error: "This payout is above the automatic limit and needs more council approvals." };
     }
     const result = this.send(`release:${index}`, onSent);
     if (result && !result.ok && !result.pending) return result;
     m.status = "Released";
     return result ?? { ok: true, txHash: "0xrelease" };
+  }
+
+  async readAutoReleaseLimit() {
+    return this.unreadable ? null : this.autoReleaseLimit.toString();
+  }
+
+  async setAutoReleaseLimit(minorUnits: string): Promise<Tx> {
+    const failed = this.send(`limit:${minorUnits}`, () => undefined);
+    if (failed && !failed.ok && !failed.pending) return failed;
+    this.autoReleaseLimit = BigInt(minorUnits);
+    return failed ?? { ok: true, txHash: `0xlimit${this.n}` };
+  }
+
+  async readCouncilThreshold() {
+    return this.unreadable ? null : this.councilThreshold;
+  }
+
+  async setCouncilThreshold(threshold: number): Promise<Tx> {
+    // Mirrors the contract floor (MIN_COUNCIL_THRESHOLD = 2).
+    if (threshold < 2) return { ok: false, error: "The council needs at least 2 approvals; the contract will not go lower." };
+    const failed = this.send(`threshold:${threshold}`, () => undefined);
+    if (failed && !failed.ok && !failed.pending) return failed;
+    this.councilThreshold = threshold;
+    return failed ?? { ok: true, txHash: `0xthreshold${this.n}` };
   }
 
   async setRole(kind: "attestor" | "council", address: string, active: boolean): Promise<Tx> {

@@ -8,6 +8,7 @@ export function hashEmail(email: string): string {
   return createHash("sha256").update(normalizeEmail(email)).digest("hex");
 }
 
+/** Trims and lower-cases an email so equivalent spellings hash and compare the same. */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -26,6 +27,7 @@ export function encryptSecret(plaintext: string, keyHex: string): string {
   return [iv, tag, ciphertext].map((b) => b.toString("hex")).join(":");
 }
 
+/** Reverses `encryptSecret`: splits `iv:tag:ciphertext`, checks the GCM auth tag and returns the plaintext. Throws on a malformed or tampered payload. */
 export function decryptSecret(payload: string, keyHex: string): string {
   const [ivHex, tagHex, dataHex] = payload.split(":");
   if (!ivHex || !tagHex || !dataHex) throw new Error("Malformed encrypted payload");

@@ -1,3 +1,5 @@
+/** Unit tests for converting rupees to minor units and formatting minor units back. */
+
 import { describe, expect, it } from "vitest";
 import { formatMinorUnits, rupeesToMinorUnits } from "./money";
 

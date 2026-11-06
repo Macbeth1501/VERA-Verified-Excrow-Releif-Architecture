@@ -1,5 +1,7 @@
+/** Unit tests for display formatting helpers. */
+
 import { describe, expect, it } from "vitest";
-import { formatBps, formatUtc, shortAddress } from "./format";
+import { formatBps, formatIst, shortAddress } from "./format";
 
 describe("display formatting", () => {
   it("shortens long addresses and leaves short ones alone", () => {
@@ -7,9 +9,10 @@ describe("display formatting", () => {
     expect(shortAddress("0xabc")).toBe("0xabc");
   });
 
-  it("formats time in fixed UTC so server and browser agree", () => {
-    expect(formatUtc("2026-09-19T04:31:02.000Z")).toBe("19 Sep 2026, 04:31 UTC");
-    expect(formatUtc("not a date")).toBe("not a date");
+  it("formats time in fixed IST so server and browser agree", () => {
+    expect(formatIst("2026-09-19T04:31:02.000Z")).toBe("19 Sep 2026, 10:01 IST");
+    expect(formatIst("2026-09-19T20:00:00.000Z")).toBe("20 Sep 2026, 01:30 IST");
+    expect(formatIst("not a date")).toBe("not a date");
   });
 
   it("formats basis points as a percentage", () => {

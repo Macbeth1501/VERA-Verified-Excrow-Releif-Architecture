@@ -126,6 +126,14 @@ describe.skipIf(!live)("live Amoy: publish, attest, approve, release", () => {
       log("organizer approved on-chain");
 
       // ---- campaign: two milestones, 40% then 60%, each needing 2 confirmations
+      // The attestors must exist before the campaign: creating it refuses more confirmations than registered attestors (C3).
+      const earlyRolesRoute = await import("@/app/api/v1/admin/roles/route");
+      for (const a of attestors) {
+        const r = await earlyRolesRoute.POST(
+          new Request("http://localhost/x", { method: "POST", headers: { "content-type": "application/json", cookie: admin.cookie }, body: JSON.stringify({ email: a.email, role: "attestor", active: true }) }),
+        );
+        expect((await r.json()).grant.chainSync).toBe("synced");
+      }
       const campaignsRoute = await import("@/app/api/v1/campaigns/route");
       const created = await call(campaignsRoute.POST as never, org.cookie, {
         title: "Live escrow test campaign", summary: "End to end test of attestation, council approval and release.",
@@ -232,6 +240,10 @@ describe.skipIf(!live)("live Amoy: publish, attest, approve, release", () => {
       if (registered.status !== 201) log(`beneficiary failed: ${registered.status} ${JSON.stringify(registered.body)}`);
       expect(registered.status).toBe(201);
       log("beneficiary registered on the registry");
+      // C5: an attestor must confirm the beneficiary exists before a payout is allowed (app-level rule, no gas).
+      const attestationsRoute = await import("@/app/api/v1/campaigns/[id]/beneficiaries/attestations/route");
+      const confirmed = await call(attestationsRoute.POST as never, attestors[0].cookie, { identityHash: H1 }, campaignId);
+      expect(confirmed.status).toBe(201);
       const paid = await call(disburseRoute.POST as never, admin.cookie, { beneficiaryId: registered.body.beneficiary.id, amountMinorUnits: "30000000" }, m1);
       if (paid.status !== 201) log(`payout failed: ${paid.status} ${JSON.stringify(paid.body)}`);
       expect(paid.status).toBe(201);

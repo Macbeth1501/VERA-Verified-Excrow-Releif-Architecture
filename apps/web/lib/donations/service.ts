@@ -5,8 +5,10 @@ import { donations, users, type DonationRow } from "../db/schema";
 import { getCampaign } from "../campaigns/service";
 
 type Step = DonationRow["step"];
+/** The donor-facing stage of a donation, derived from its current step and status. */
 export type DonationStage = "adding_funds" | "approving" | "sending" | "confirming" | "done" | "failed";
 
+/** One donation as the API returns it: amounts, status, current step and stage with its position for a progress display, the deposit transaction and any error. */
 export interface DonationView {
   id: string;
   campaignId: string;
@@ -25,21 +27,25 @@ export interface DonationView {
   confirmedAt: string | null;
 }
 
+/** Thrown when a donation does not exist or belongs to someone else (the two are indistinguishable on purpose). */
 export class DonationNotFoundError extends Error {
   constructor() {
     super("Donation not found");
   }
 }
+/** Thrown when the donor uses their own wallet, which VERA cannot sign transactions for. */
 export class WalletNotManagedError extends Error {
   constructor() {
     super("This account uses its own wallet, which VERA cannot sign for yet");
   }
 }
+/** Thrown when donating to a campaign that is not published or no longer takes donations. */
 export class CampaignNotOpenError extends Error {
   constructor() {
     super("This campaign is not open for donations");
   }
 }
+/** Thrown when a fee applies and the donor has not chosen to cover or decline it. */
 export class FeeChoiceRequiredError extends Error {
   constructor() {
     super("Choose whether to cover the platform fee");
@@ -52,6 +58,7 @@ function stepsFor(feeMinorUnits: string): Step[] {
   return ORDER.filter((s) => s !== "fee" || feeMinorUnits !== "0");
 }
 
+/** Converts a stored donation row into its API view, working out the stage and step numbering. */
 export function toView(row: DonationRow): DonationView {
   const steps = stepsFor(row.feeMinorUnits);
   let stage: DonationStage = "adding_funds";
@@ -83,10 +90,12 @@ function load(db: Db, id: string, userId: string): DonationRow {
   return row;
 }
 
+/** Loads one of the donor's own donations as a view; throws if it is not theirs. */
 export function getDonation(db: Db, id: string, userId: string): DonationView {
   return toView(load(db, id, userId));
 }
 
+/** All of the donor's donations as views, newest first. */
 export function listDonations(db: Db, userId: string): DonationView[] {
   return db.select().from(donations).where(eq(donations.donorUserId, userId)).orderBy(desc(donations.createdAt)).all().map(toView);
 }

@@ -24,6 +24,7 @@ import type { EscrowChain, MilestoneState, Signer, Tx } from "./chain-port";
  * the resulting state back from the chain. Nothing here stores a count or a status the chain owns.
  */
 
+/** A refused milestone operation: HTTP status, enumerable error code and a message safe to show. */
 export type EscrowFailure = {
   ok: false;
   status: number;
@@ -42,10 +43,13 @@ export type EscrowFailure = {
   message: string;
 };
 
+/** Result of a milestone operation: `{ ok: true, ...data }` on success, an `EscrowFailure` otherwise. */
 export type Outcome<T> = ({ ok: true } & T) | EscrowFailure;
 
+/** Builds an `EscrowFailure`. */
 export const fail = (status: number, code: EscrowFailure["code"], message: string): EscrowFailure => ({ ok: false, status, code, message });
 
+/** A milestone with its campaign and the campaign's vault address. */
 export interface MilestoneContext {
   milestone: MilestoneRow;
   campaign: CampaignRow;
@@ -61,18 +65,22 @@ export function loadMilestone(db: Db, milestoneId: string): MilestoneContext | n
   return { milestone, campaign, vault: campaign.vaultContractAddress };
 }
 
+/** The user's server-side signer (address plus encrypted key), or null when they use their own wallet. */
 export function signerFor(db: Db, user: Pick<PublicUser, "id" | "walletAddress">): Signer | null {
   const keyEnc = getWalletKeyEnc(db, user.id);
   return keyEnc ? { address: user.walletAddress, keyEnc } : null;
 }
 
 const notMine = "This account uses its own wallet, which the server cannot sign for.";
+/** The standard refusal for an account whose wallet the server cannot sign for. */
 export const noSigner = () => fail(409, "FORBIDDEN", notMine);
 
 // ------------------------------------------------------------------ roles (admin)
 
+/** A role that is granted on-chain: attestor or council. */
 export type RoleKind = RoleGrantRow["role"];
 
+/** One role grant as the admin sees it, with its on-chain sync state. */
 export interface RoleGrantView {
   id: string;
   email: string;
@@ -83,6 +91,7 @@ export interface RoleGrantView {
   chainTxHash: string | null;
 }
 
+/** All role grants with the holder's email and wallet and their on-chain sync state. */
 export function listRoleGrants(db: Db): RoleGrantView[] {
   return db
     .select({
@@ -173,8 +182,49 @@ export function roleIsSynced(db: Db, userId: string, role: RoleKind): boolean {
   return grant?.chainSync === "synced";
 }
 
+/** How many accounts hold this role and are registered on the contract (the only ones that can act). */
+export function countSyncedRole(db: Db, role: RoleKind): number {
+  return db.select().from(roleGrants).where(and(eq(roleGrants.role, role), eq(roleGrants.chainSync, "synced"))).all().length;
+}
+
+/**
+ * The highest confirmation count any not-yet-released milestone of a live campaign still needs.
+ * The database status is only a cache, so this is a conservative upper bound used for a warning,
+ * never for a decision. 0 when there is none.
+ */
+export function maxOpenRequirement(db: Db): number {
+  const rows = db
+    .select({ required: milestones.requiredAttestations })
+    .from(milestones)
+    .innerJoin(campaigns, eq(campaigns.id, milestones.campaignId))
+    .where(and(eq(campaigns.status, "LIVE"), eq(milestones.status, "PENDING")))
+    .all();
+  return rows.reduce((max, r) => Math.max(max, r.required), 0);
+}
+
+/**
+ * C3 guard: a milestone that needs more confirmations than there are active attestors can never be
+ * verified and its money would be stuck until expiry. The contract cannot count attestors (a
+ * mapping), so the app checks. Returns a field error per offending milestone index, or `{}`.
+ */
+export function attestationShortfalls(
+  milestoneRequirements: Array<{ requiredAttestations: number }>,
+  activeAttestors: number,
+): Record<number, string> {
+  const out: Record<number, string> = {};
+  milestoneRequirements.forEach((m, i) => {
+    if (m.requiredAttestations <= activeAttestors) return;
+    out[i] =
+      activeAttestors === 0
+        ? "No attestors are registered yet; ask an admin to add some before creating a campaign."
+        : `Only ${activeAttestors} attestor${activeAttestors === 1 ? " is" : "s are"} registered; ask an admin to add more or lower this number.`;
+  });
+  return out;
+}
+
 // ------------------------------------------------------------------ defining milestones (organizer)
 
+/** Result of registering a campaign's milestones on the milestone manager. */
 export type DefineStatus = "not_configured" | "not_live" | "defined" | "failed";
 
 /**
@@ -234,6 +284,7 @@ export async function defineMilestonesOnChain(
 
 // ------------------------------------------------------------------ actions (attest / approve / release)
 
+/** A kind of milestone action: attestation, council approval or release. */
 export type ActionKind = MilestoneActionRow["kind"];
 
 const STALE_UNSENT_MS = 60_000;
@@ -315,6 +366,7 @@ export async function performAction(
 
 // ------------------------------------------------------------------ reading (public)
 
+/** One recorded milestone action: who did it, its status and transaction hash, and any evidence document. */
 export interface ActionView {
   kind: ActionKind;
   status: MilestoneActionRow["status"];
@@ -324,6 +376,7 @@ export interface ActionView {
   evidenceDocumentId: string | null;
 }
 
+/** A milestone for display: its description and targets, whether the chain knows it, the contract-reported state and the actions taken. */
 export interface MilestoneView {
   id: string;
   campaignId: string;
@@ -341,6 +394,7 @@ export interface MilestoneView {
   actions: ActionView[];
 }
 
+/** Builds a milestone's view, reading its state from the contract and merging in the recorded actions. */
 export async function viewMilestone(db: Db, chain: EscrowChain, ctx: MilestoneContext): Promise<MilestoneView> {
   const { milestone: m, campaign, vault } = ctx;
   const defined = m.chainStatus === "defined";

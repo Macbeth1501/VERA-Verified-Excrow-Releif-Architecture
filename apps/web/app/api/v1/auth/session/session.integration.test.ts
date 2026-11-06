@@ -1,3 +1,5 @@
+/** Integration tests for `GET /api/v1/auth/session`, the lightweight check of who the cookie says is signed in. */
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetEnvCache } from "@/lib/env";

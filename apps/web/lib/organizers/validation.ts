@@ -28,6 +28,7 @@ export const applicationSchema = z.object({
     .optional(),
 });
 
+/** Admin decision on an application; rejecting requires a short reason. */
 export const decisionSchema = z
   .object({
     decision: z.enum(["approve", "reject"]),
@@ -38,5 +39,7 @@ export const decisionSchema = z
     path: ["reason"],
   });
 
+/** Validated organizer application input. */
 export type ApplicationInput = z.infer<typeof applicationSchema>;
+/** Validated admin decision input. */
 export type DecisionInput = z.infer<typeof decisionSchema>;

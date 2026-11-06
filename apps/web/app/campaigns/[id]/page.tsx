@@ -13,6 +13,7 @@ import { indexerRuntime } from "@/lib/indexer/runtime";
 // Always rendered on request: this page shows live chain data and must never be cached.
 export const dynamic = "force-dynamic";
 
+/** Sets the tab title from the campaign title, falling back to a generic title when the campaign does not exist. */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const campaign = getCampaign(getDb(), id);

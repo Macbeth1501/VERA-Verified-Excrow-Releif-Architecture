@@ -2,7 +2,17 @@ import { apiError } from "../api/errors";
 import { allow } from "../api/rate-limit";
 import type { BeneficiaryFailure } from "./service";
 
+/** Maps a beneficiary service failure to the standard API error response. */
 export const beneficiaryError = (f: BeneficiaryFailure) => apiError(f.status, f.code, f.message);
+
+/**
+ * Confirming a beneficiary is a guessing oracle for a fingerprint (match or no match), so it is limited
+ * per attestor: a burst of 10, then one every 6 seconds. Far too slow to enumerate identities.
+ */
+export const limitedAttestations = (userId: string) =>
+  allow(`beneficiary-attest:${userId}`, { capacity: 10, refillPerSecond: 1 / 6 })
+    ? null
+    : apiError(429, "RATE_LIMITED", "Too many confirmations too quickly. Please slow down and try again shortly.");
 
 /**
  * Registration gets a stricter bucket than other mutating routes (SPDD 17.3) and is keyed per signed-in

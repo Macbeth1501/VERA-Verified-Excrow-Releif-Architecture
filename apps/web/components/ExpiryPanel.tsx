@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ExpiryInfo } from "@/lib/campaigns/dashboard";
-import { formatUtc } from "@/lib/campaigns/format";
+import { formatIst } from "@/lib/campaigns/format";
 import { formatMinorUnits } from "@/lib/campaigns/money";
 
 const REASON_TEXT = {
@@ -100,8 +100,8 @@ export function ExpiryPanel({
 
       {expiry.state === "open" ? (
         <p className="mt-3 max-w-[62ch] text-sm text-sand">
-          Donations are open until <strong className="text-ink">{formatUtc(expiry.deadlineAt!)}</strong>. If no milestone is released by{" "}
-          <strong className="text-ink">{formatUtc(expiry.inactivityDeadlineAt!)}</strong> ({expiry.inactivityDays} days without progress), or the end date
+          Donations are open until <strong className="text-ink">{formatIst(expiry.deadlineAt!)}</strong>. If no milestone is released by{" "}
+          <strong className="text-ink">{formatIst(expiry.inactivityDeadlineAt!)}</strong> ({expiry.inactivityDays} days without progress), or the end date
           passes first, anyone can close the campaign and every donor can take back their share of what is still held. Money already released to the
           organizer is not taken back.
         </p>
@@ -109,14 +109,14 @@ export function ExpiryPanel({
 
       {expiry.state === "ended" ? (
         <p className="mt-3 max-w-[62ch] text-sm text-sand" data-testid="expiry-ended">
-          The end date passed on <strong className="text-ink">{formatUtc(expiry.deadlineAt!)}</strong>. Donations are closed. Until someone closes the
+          The end date passed on <strong className="text-ink">{formatIst(expiry.deadlineAt!)}</strong>. Donations are closed. Until someone closes the
           campaign, nothing moves.
         </p>
       ) : null}
 
       {closed && expiry.closed ? (
         <p className="mt-3 max-w-[62ch] text-sm text-sand" data-testid="expiry-closed">
-          Closed on {formatUtc(expiry.closed.timestamp)} because {REASON_TEXT[expiry.closed.reason]}.{" "}
+          Closed on {formatIst(expiry.closed.timestamp)} because {REASON_TEXT[expiry.closed.reason]}.{" "}
           <strong className="text-ink">{formatMinorUnits(expiry.closed.refundPool)}</strong> was held and is shared back to donors in proportion to what
           each gave. {expiry.refundCount} {expiry.refundCount === 1 ? "donor has" : "donors have"} claimed so far.
         </p>

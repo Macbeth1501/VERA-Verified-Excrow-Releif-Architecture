@@ -5,6 +5,7 @@ export const MIN_DONATION_MINOR_UNITS = 1_000_000n; // 1 rupee
 /** A sanity cap: the on-ramp is a free faucet, so nothing stops absurd amounts otherwise. */
 export const MAX_DONATION_MINOR_UNITS = 1_000_000_000_000n; // 10,00,000 rupees
 
+/** Donation request: campaign id, a positive integer amount in minor units within the allowed range, and the donor's fee choice (no default, so a fee is never pre-selected). */
 export const createDonationSchema = z
   .object({
     campaignId: z.string().min(1),
@@ -27,4 +28,5 @@ export const createDonationSchema = z
     }
   });
 
+/** Validated donation request input. */
 export type CreateDonationInput = z.infer<typeof createDonationSchema>;

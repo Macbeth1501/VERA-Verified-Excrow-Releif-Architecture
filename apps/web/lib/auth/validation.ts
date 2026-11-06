@@ -26,10 +26,13 @@ export const registerSchema = z.object({
     .optional(),
 });
 
+/** Sign-in input: an email and a non-empty password. */
 export const loginSchema = z.object({
   email,
   password: z.string().min(1).max(128),
 });
 
+/** Validated registration input. */
 export type RegisterInput = z.infer<typeof registerSchema>;
+/** Validated sign-in input. */
 export type LoginInput = z.infer<typeof loginSchema>;

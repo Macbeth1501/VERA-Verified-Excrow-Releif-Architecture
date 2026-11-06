@@ -14,6 +14,7 @@ export interface PayoutReference {
   refHash: `0x${string}`;
 }
 
+/** keccak256 of a payout reference as UTF-8: the `bytes32` the Disbursement contract records, so the reference itself never goes on-chain. */
 export const hashPayoutReference = (reference: string): `0x${string}` => keccak256(toBytes(reference));
 
 /** A fresh, unguessable reference for one simulated transfer. */

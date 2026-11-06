@@ -1,20 +1,26 @@
 import { SignJWT, jwtVerify } from "jose";
 import { getEnv } from "../env";
 
+/** Name of the session cookie. */
 export const SESSION_COOKIE = "vera_session";
+/** Session lifetime: 24 hours. */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24h
 
+/** Every role a user can hold. */
 export type Role = "donor" | "organizer" | "attestor" | "council" | "admin";
 
+/** What a session token carries: the user id and the role at sign-in. */
 export interface Session {
   userId: string;
   role: Role;
 }
 
+/** The HMAC key for session tokens, taken from the `AUTH_SECRET` env var. */
 function key(): Uint8Array {
   return new TextEncoder().encode(getEnv().AUTH_SECRET);
 }
 
+/** Signs a session as an HS256 JWT (subject = user id) that expires after `SESSION_TTL_SECONDS`. */
 export async function signSession(session: Session): Promise<string> {
   return new SignJWT({ role: session.role })
     .setProtectedHeader({ alg: "HS256" })
@@ -36,19 +42,23 @@ export async function verifySession(token: string | undefined): Promise<Session 
   }
 }
 
+/** Cookie attributes shared by set and clear: HttpOnly, SameSite=Lax, and Secure in production. */
 function cookieAttributes(maxAge: number): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
+/** The `Set-Cookie` value that stores the session token. */
 export function sessionCookieHeader(token: string): string {
   return `${SESSION_COOKIE}=${token}; ${cookieAttributes(SESSION_TTL_SECONDS)}`;
 }
 
+/** The `Set-Cookie` value that clears the session cookie (Max-Age 0). */
 export function clearSessionCookieHeader(): string {
   return `${SESSION_COOKIE}=; ${cookieAttributes(0)}`;
 }
 
+/** Extracts the session token from the request's `cookie` header, if present. */
 export function readSessionCookie(request: Request): string | undefined {
   const header = request.headers.get("cookie");
   if (!header) return undefined;

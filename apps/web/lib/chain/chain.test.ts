@@ -1,3 +1,5 @@
+/** Unit tests for small chain helpers: wallet generation, rupee formatting and RPC URL parsing. */
+
 import { describe, expect, it } from "vitest";
 import { privateKeyToAccount } from "viem/accounts";
 import { isAddress } from "viem";

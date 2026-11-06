@@ -12,8 +12,10 @@ export const CATEGORY_ADMIN_CEILING_PCT = {
   COMMUNITY: 20,
 } as const;
 
+/** A campaign category key. */
 export type CampaignCategory = keyof typeof CATEGORY_ADMIN_CEILING_PCT;
 
+/** All campaign categories as an array. */
 export const CAMPAIGN_CATEGORIES = Object.keys(CATEGORY_ADMIN_CEILING_PCT) as CampaignCategory[];
 
 /** Enum ordinal expected by the Solidity `CampaignCategory` enum. Order must not change. */
@@ -23,12 +25,14 @@ export const CATEGORY_ENUM_INDEX: Record<CampaignCategory, number> = {
   COMMUNITY: 2,
 };
 
+/** Human-readable name of each category for the UI. */
 export const CATEGORY_LABEL: Record<CampaignCategory, string> = {
   DISASTER_RELIEF: "Disaster relief",
   MEDICAL: "Medical",
   COMMUNITY: "Community",
 };
 
+/** The admin-cost ceiling (percent) for a category. */
 export function ceilingFor(category: CampaignCategory): number {
   return CATEGORY_ADMIN_CEILING_PCT[category];
 }

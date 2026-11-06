@@ -82,6 +82,14 @@ describe.skipIf(!live)("local anvil: a stalled campaign is closed and its donors
       });
       expect((await call(decisionRoute.POST as never, admin.cookie, { decision: "approve" }, apply.body.profile.id)).body.profile.chainSync).toBe("synced");
 
+      // The attestors must exist before the campaign: creating it refuses more confirmations than registered attestors (C3).
+      const earlyRolesRoute = await import("@/app/api/v1/admin/roles/route");
+      for (const a of attestors) {
+        const r = await earlyRolesRoute.POST(
+          new Request("http://localhost/x", { method: "POST", headers: { "content-type": "application/json", cookie: admin.cookie }, body: JSON.stringify({ email: a.email, role: "attestor", active: true }) }),
+        );
+        expect((await r.json()).grant.chainSync).toBe("synced");
+      }
       const campaignsRoute = await import("@/app/api/v1/campaigns/route");
       const created = await call(campaignsRoute.POST as never, org.cookie, {
         title: "Local expiry test campaign", summary: "End to end test of closing a stalled campaign and refunding its donors.",

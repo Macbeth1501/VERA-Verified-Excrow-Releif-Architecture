@@ -13,6 +13,7 @@ import { listDonations } from "@/lib/donations/service";
 export const metadata = { title: "Your account | VERA" };
 export const dynamic = "force-dynamic";
 
+/** Reads the donor's mock-INR balance for their wallet address, or null if the chain reader is unavailable, so the page never shows a made-up figure. */
 async function loadBalance(address: string): Promise<string | null> {
   try {
     return formatRupees(await getMinrBalance(address));
@@ -27,6 +28,7 @@ const DONATION_STATE = {
   PENDING: { label: "Pending, view", tone: "text-warn", dot: "border border-warn" },
 } as const;
 
+/** Donor account page: signed-in email, wallet balance and the donor's donation history with its state. */
 export default async function AccountPage() {
   const session = await verifySession((await cookies()).get(SESSION_COOKIE)?.value);
   if (session === null) redirect("/login");

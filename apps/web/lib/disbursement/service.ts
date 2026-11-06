@@ -3,6 +3,7 @@ import { and, eq, lte } from "drizzle-orm";
 import { findUserById, getWalletKeyEnc, type PublicUser } from "../auth/users";
 import { formatMinorUnits } from "../campaigns/money";
 import { ownerUserId } from "../campaigns/service";
+import { attestationCount, beneficiaryRequiredAttestations } from "../beneficiary/verification";
 import { createPayoutReference } from "../chain/mockOffRamp";
 import type { Db } from "../db";
 import { beneficiaries, disbursements, type DisbursementRow } from "../db/schema";
@@ -19,6 +20,7 @@ import type { DisbursementChain } from "./chain-port";
  * payout. Each hash is saved before waiting, and a send whose outcome is unknown stays PENDING.
  */
 
+/** A refused payout operation: HTTP status, enumerable error code and a message safe to show. */
 export type DisbursementFailure = {
   ok: false;
   status: number;
@@ -27,6 +29,7 @@ export type DisbursementFailure = {
     | "FORBIDDEN"
     | "DISBURSEMENT_NOT_CONFIGURED"
     | "BENEFICIARY_NOT_FOUND"
+    | "BENEFICIARY_NOT_VERIFIED"
     | "MILESTONE_NOT_RELEASED"
     | "ALREADY_DISBURSED"
     | "EXCEEDS_RELEASED"
@@ -37,6 +40,7 @@ export type DisbursementFailure = {
   message: string;
 };
 
+/** Result of a payout operation: `{ ok: true, ...data }` on success, a `DisbursementFailure` otherwise. */
 export type Outcome<T> = ({ ok: true } & T) | DisbursementFailure;
 
 const fail = (status: number, code: DisbursementFailure["code"], message: string): DisbursementFailure => ({ ok: false, status, code, message });
@@ -44,6 +48,7 @@ const fail = (status: number, code: DisbursementFailure["code"], message: string
 /** How long one request owns a payout: two transactions, each with a top-up and up to 90 s of waiting. */
 const LOCK_MS = 5 * 60_000;
 
+/** One recorded payout as the API returns it: milestone, beneficiary fingerprint, amount, off-ramp reference and its hash, status, both transaction hashes and any error. */
 export interface DisbursementView {
   id: string;
   milestoneId: string;
@@ -157,6 +162,18 @@ export async function disburseMilestone(
     if (!beneficiary) return fail(404, "BENEFICIARY_NOT_FOUND", "That beneficiary is not registered for this campaign.");
     if (beneficiary.chainStatus !== "CONFIRMED") {
       return fail(409, "BENEFICIARY_NOT_FOUND", "That beneficiary's registration is not confirmed on the blockchain yet.");
+    }
+    // C5: an APP-LEVEL rule, not a contract rule. The Disbursement contract only checks that the
+    // beneficiary is registered; until a v2 contract does more (C6), this check and the database are
+    // what stop a payout to someone no independent attestor has confirmed exists.
+    const required = beneficiaryRequiredAttestations();
+    const confirmedBy = attestationCount(db, beneficiary.id);
+    if (confirmedBy < required) {
+      return fail(
+        409,
+        "BENEFICIARY_NOT_VERIFIED",
+        `That beneficiary has not been confirmed by an independent attestor yet (${confirmedBy} of ${required}). Ask an attestor to verify them first.`,
+      );
     }
 
     const index = ctx.milestone.sequenceOrder;

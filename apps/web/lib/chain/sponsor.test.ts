@@ -1,3 +1,5 @@
+/** Unit tests for the gas-price guard that stops sponsored transactions when fees spike. */
+
 import { describe, expect, it } from "vitest";
 import { MAX_GAS_PRICE_WEI, gasPriceRefusal } from "./sponsor";
 

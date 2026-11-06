@@ -1,3 +1,5 @@
+/** Integration tests for account registration, and for login, session and balance, through the real route handlers. */
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { privateKeyToAccount } from "viem/accounts";

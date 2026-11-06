@@ -4,6 +4,9 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {MockINR} from "../src/MockINR.sol";
 
+/// @title MockINRTest
+/// @notice Tests for the testnet mINR token: the public faucet `mint` raises the balance, and
+///         `decimals` is 6.
 contract MockINRTest is Test {
     MockINR internal token;
     address internal donor = address(0xBEEF);

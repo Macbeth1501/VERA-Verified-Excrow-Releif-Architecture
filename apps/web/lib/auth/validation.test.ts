@@ -1,3 +1,5 @@
+/** Unit tests for the registration and login input schemas. */
+
 import { describe, expect, it } from "vitest";
 import { loginSchema, registerSchema } from "./validation";
 

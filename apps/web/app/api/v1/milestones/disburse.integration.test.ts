@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimits } from "@/lib/api/rate-limit";
 import { signSession } from "@/lib/auth/session";
 import { getDb, resetDbForTests } from "@/lib/db";
-import { beneficiaries, disbursements, users } from "@/lib/db/schema";
+import { beneficiaries, beneficiaryAttestations, disbursements, users } from "@/lib/db/schema";
 import { FakeDisbursementChain } from "@/lib/disbursement/fake-chain";
 import { VAULT, makeDonor, makeLiveCampaign } from "@/lib/donations/test-setup";
 import { resetEnvCache } from "@/lib/env";
@@ -50,6 +50,9 @@ async function released() {
   db.insert(beneficiaries)
     .values({ id: beneficiaryId, campaignId: campaign.id, identityHash: H1, payoutMethod: "bank transfer", registeredByUserId: organizer.id, chainStatus: "CONFIRMED" })
     .run();
+  // C5: a payout needs an independent attestor to have confirmed the beneficiary.
+  const attestor = await makeDonor(db);
+  db.insert(beneficiaryAttestations).values({ id: randomUUID(), beneficiaryId, attestorUserId: attestor.id }).run();
   chain.organizer = organizer.walletAddress.toLowerCase();
   chain.register(VAULT, H1);
   chain.release(VAULT, 0, BigInt(AMOUNT));

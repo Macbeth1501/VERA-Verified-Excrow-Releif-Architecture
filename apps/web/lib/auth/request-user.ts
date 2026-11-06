@@ -12,6 +12,7 @@ export async function getRequestUser(request: Request, db: Db): Promise<PublicUs
   return session ? findUserById(db, session.userId) : null;
 }
 
+/** True when the user's role is one of the given roles. */
 export function hasRole(user: PublicUser, ...roles: Role[]): boolean {
   return roles.includes(user.role);
 }

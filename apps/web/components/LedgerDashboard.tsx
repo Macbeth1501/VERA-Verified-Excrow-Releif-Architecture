@@ -6,7 +6,7 @@ import { ExpiryPanel } from "@/components/ExpiryPanel";
 import { StageTrack } from "@/components/StageRail";
 import { CATEGORY_LABEL } from "@/lib/campaigns/ceilings";
 import type { DashboardData } from "@/lib/campaigns/dashboard";
-import { formatBps, formatUtc, shortAddress } from "@/lib/campaigns/format";
+import { formatBps, formatIst, shortAddress } from "@/lib/campaigns/format";
 import { formatMinorUnits } from "@/lib/campaigns/money";
 import { explorerAddressUrl, explorerTxUrl } from "@/lib/explorer";
 
@@ -149,6 +149,7 @@ function ReconciliationBadge({ data, onRecheck }: { data: DashboardData; onReche
   );
 }
 
+/** Keeps the ledger data fresh: polls `/api/v1/campaigns/{id}/ledger` while the tab is visible and exposes a manual `refresh` plus a `refreshFailed` flag, so a failed refresh is shown rather than hidden. */
 function useLiveData(initial: DashboardData) {
   const [data, setData] = useState(initial);
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -196,7 +197,8 @@ function Payouts({ data }: { data: DashboardData }) {
       </h2>
       <p className="mt-2 max-w-[62ch] text-sm text-sand">
         After a milestone is released, the organizer records who it paid. The payout contract refuses a payout for an unreleased
-        milestone, an unregistered beneficiary, a milestone already paid, or more than was released.
+        milestone, {data.beneficiaries.verification.onChain ? "a beneficiary no independent attestor has confirmed" : "an unregistered beneficiary"}, a milestone
+        already paid, or more than was released.
         {contract ? (
           <>
             {" "}
@@ -224,7 +226,7 @@ function Payouts({ data }: { data: DashboardData }) {
           <tbody>
             {[...entries].reverse().map((p) => (
               <tr key={p.id} className={TR} data-testid="payout-row">
-                <td className={`${TD} text-sand`} data-label="When">{formatUtc(p.timestamp)}</td>
+                <td className={`${TD} text-sand`} data-label="When">{formatIst(p.timestamp)}</td>
                 <td className={`${TD} text-sand`} data-label="Milestone">
                   {p.milestoneIndex + 1}. {milestone(p.milestoneIndex)?.description ?? ""}
                 </td>
@@ -279,6 +281,7 @@ function AccountRow({ label, note, value, testId, strong }: { label: string; not
   );
 }
 
+/** The public campaign audit dashboard: escrow totals, stage progress, milestones, the event ledger and export links, all from chain-indexed data. `donateSlot` renders the donation panel; `signedIn` adjusts the calls to action. */
 export function LedgerDashboard({ initial, donateSlot, signedIn = false }: { initial: DashboardData; donateSlot?: ReactNode; signedIn?: boolean }) {
   const { data, refreshFailed, refresh } = useLiveData(initial);
   const { campaign, escrow, organizer } = data;
@@ -348,10 +351,17 @@ export function LedgerDashboard({ initial, donateSlot, signedIn = false }: { ini
               note={
                 data.beneficiaries.registry ? (
                   <span data-testid="beneficiaries">
-                    {data.beneficiaries.uniqueCount} verified unique {data.beneficiaries.uniqueCount === 1 ? "beneficiary" : "beneficiaries"} ·{" "}
+                    {data.beneficiaries.uniqueCount} unique {data.beneficiaries.uniqueCount === 1 ? "beneficiary" : "beneficiaries"} ·{" "}
                     <a className="underline" href={explorerAddressUrl(data.beneficiaries.registry)} target="_blank" rel="noreferrer">
                       public registry
                     </a>
+                    {data.beneficiaries.verification.registered > 0 ? (
+                      <span data-testid="beneficiaries-verified" className="block">
+                        {data.beneficiaries.verification.verified} of {data.beneficiaries.verification.registered}{" "}
+                        {data.beneficiaries.verification.registered === 1 ? "beneficiary" : "beneficiaries"} verified by independent attestors
+                        {data.beneficiaries.verification.onChain ? " (confirmed on the blockchain)" : " (checked by VERA, not the blockchain)"}
+                      </span>
+                    ) : null}
                   </span>
                 ) : paidOut > 0n ? (
                   "Recorded by the organizer, out of what was released"
@@ -502,7 +512,7 @@ export function LedgerDashboard({ initial, donateSlot, signedIn = false }: { ini
                 <tbody>
                   {[...donations].reverse().map((e) => (
                     <tr key={e.id} className={TR}>
-                      <td className={`${TD} text-sand`} data-label="When">{formatUtc(e.timestamp)}</td>
+                      <td className={`${TD} text-sand`} data-label="When">{formatIst(e.timestamp)}</td>
                       <td className={`${TD} font-mono text-[13px] text-sand`} data-label="From">{shortAddress(e.actor)}</td>
                       <td className={`${TD} num text-right font-semibold text-ink max-md:text-left`} data-label="Amount">
                         {formatMinorUnits(e.amount ?? "0")}

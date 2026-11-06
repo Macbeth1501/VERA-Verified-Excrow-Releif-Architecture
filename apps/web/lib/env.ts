@@ -12,6 +12,7 @@ const DEFAULT_RPC_URLS = [
   "https://polygon-amoy.gateway.tenderly.co",
 ];
 
+/** Splits a comma-separated `RPC_URL` into trimmed, non-empty URLs, in priority order. */
 export function parseRpcUrls(value: string): string[] {
   return value
     .split(",")
@@ -101,6 +102,18 @@ const schema = z.object({
    */
   PLATFORM_FEE_MINOR_UNITS: optionalInt(0).default(0),
   PLATFORM_FEE_ADDRESS: address().optional(),
+  /** Distinct attestors who must confirm a beneficiary exists before a payout to them is allowed (C5; app-enforced). 1 or more. */
+  BENEFICIARY_REQUIRED_ATTESTATIONS: optionalInt(1).default(1),
+  /**
+   * "1" when BENEFICIARY_REGISTRY_ADDRESS and DISBURSEMENT_ADDRESS point at the V2 contracts (C6): an
+   * attestation is then also sent on-chain from the attestor's own wallet, and only confirmed ones
+   * count. Leave unset for the original contracts, where verification is an app-level rule only.
+   * BENEFICIARY_REQUIRED_ATTESTATIONS must equal the V2 registry's constructor value.
+   */
+  BENEFICIARY_REGISTRY_V2: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() === "1"),
   /** Deployed MockINR token (mINR) address. */
   MOCK_INR_ADDRESS: address(),
 }).superRefine((env, ctx) => {
@@ -109,10 +122,12 @@ const schema = z.object({
   }
 });
 
+/** The validated server environment. */
 export type Env = z.infer<typeof schema>;
 
 let cached: Env | undefined;
 
+/** Validates `process.env` once and returns it; throws listing every invalid variable. */
 export function getEnv(): Env {
   if (!cached) {
     const parsed = schema.safeParse(process.env);

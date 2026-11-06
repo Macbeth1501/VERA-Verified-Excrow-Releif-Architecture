@@ -1,3 +1,5 @@
+/** Unit tests for running an indexer sync within a time budget. */
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, type Db } from "../db";
 import { resetSyncState, syncWithinBudget, type IndexerRuntime } from "./runtime";

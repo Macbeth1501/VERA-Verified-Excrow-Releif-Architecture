@@ -8,6 +8,7 @@ export const STAGES = [
   { key: "paid", label: "Paid out", text: "The organizer records each payment to a registered beneficiary, and each person can be paid only once." },
 ] as const;
 
+/** Identifier of one of the four stages in `STAGES`. */
 export type StageKey = (typeof STAGES)[number]["key"];
 
 /** Authored icons, one stroke weight (1.6) on a 24px box. */

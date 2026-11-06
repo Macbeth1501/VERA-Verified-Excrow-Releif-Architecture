@@ -1,3 +1,5 @@
+/** Integration tests for organizer onboarding: applying, admin review, the public profile, and the rule that only verified organizers can create campaigns. */
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { resetEnvCache } from "@/lib/env";

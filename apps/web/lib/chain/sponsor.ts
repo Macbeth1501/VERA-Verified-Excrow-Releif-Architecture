@@ -33,10 +33,12 @@ export function gasPriceRefusal(gasPriceWei: bigint): string | null {
   return `Network fees are unusually high right now (${gwei} gwei, normally about 30), so this was not sent. Please try again in a few minutes.`;
 }
 
+/** Result of a gas top-up: success with the transaction hash (null if none was needed) or an error message. */
 export type TopUpResult =
   | { ok: true; txHash: string | null }
   | { ok: false; error: string };
 
+/** Options for `topUpGas`: whether to wait for the top-up to be mined. */
 export interface TopUpOptions {
   /** Wait for the top-up to be mined before returning. */
   wait: boolean;

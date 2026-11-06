@@ -28,6 +28,7 @@ contract MockINR is ERC20 {
         _mint(to, amount);
     }
 
+    /// @notice Six decimals, matching the 6-decimal minor units used throughout the app.
     function decimals() public pure override returns (uint8) {
         return DECIMALS;
     }

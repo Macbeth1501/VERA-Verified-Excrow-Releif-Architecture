@@ -18,6 +18,7 @@ export async function requireUser(request: Request, ...roles: Role[]): Promise<G
 
 type JsonResult = { body: unknown; response?: undefined } | { body?: undefined; response: Response };
 
+/** Parses the request body as JSON, or returns a ready-made 400 `INVALID_JSON` response when it is not valid JSON. */
 export async function readJson(request: Request): Promise<JsonResult> {
   try {
     return { body: await request.json() };

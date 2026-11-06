@@ -17,7 +17,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!doc) return apiError(404, "DOCUMENT_NOT_FOUND", "Document not found");
 
   const allowedRoles =
-    doc.purpose === "kyb" ? (["admin"] as const) : (["admin", "attestor", "council"] as const);
+    doc.purpose === "kyb"
+      ? (["admin"] as const)
+      : doc.purpose === "beneficiary_evidence"
+        ? (["admin", "attestor"] as const)
+        : (["admin", "attestor", "council"] as const);
   if (!(allowedRoles as readonly string[]).includes(auth.user.role)) {
     return apiError(403, "FORBIDDEN", "You do not have permission to view this document.");
   }

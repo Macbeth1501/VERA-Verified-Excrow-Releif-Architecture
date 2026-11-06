@@ -30,6 +30,7 @@ const COPY = {
   },
 } as const;
 
+/** Renders each validation message for one form field, if there are any. */
 function FieldMessages({ messages }: { messages: string[] | undefined }) {
   return (
     <>
@@ -42,6 +43,7 @@ function FieldMessages({ messages }: { messages: string[] | undefined }) {
   );
 }
 
+/** Sign-in / register form. `mode` picks the copy and the endpoint (`/api/v1/auth/login` or `/register`); on success it routes to the dashboard. Register also accepts an optional own wallet address. */
 export function AuthForm({ mode }: { mode: Mode }) {
   const copy = COPY[mode];
   const router = useRouter();

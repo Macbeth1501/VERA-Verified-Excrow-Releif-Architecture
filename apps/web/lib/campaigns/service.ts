@@ -8,8 +8,10 @@ import { DEFAULT_DURATION_DAYS, DEFAULT_INACTIVITY_DAYS, type CreateCampaignInpu
 export type NewCampaign = Omit<CreateCampaignInput, "durationDays" | "inactivityDays"> &
   Partial<Pick<CreateCampaignInput, "durationDays" | "inactivityDays">>;
 
+/** Where a campaign is in publishing to the chain (stored on the campaign row). */
 export type ChainStatus = CampaignRow["chainStatus"];
 
+/** What the chain layer reports after trying to deploy a campaign's vault: addresses and transaction hash on success, an error otherwise. */
 export interface VaultDeployResult {
   status: ChainStatus;
   vaultAddress?: string;
@@ -20,6 +22,7 @@ export interface VaultDeployResult {
   error?: string;
 }
 
+/** A campaign together with its milestones, as the API returns it. */
 export interface CampaignWithMilestones {
   id: string;
   organizerProfileId: string;
@@ -53,6 +56,7 @@ export interface CampaignWithMilestones {
   }>;
 }
 
+/** Thrown when an operation names a campaign that does not exist. */
 export class CampaignNotFoundError extends Error {
   constructor() {
     super("Campaign not found");
@@ -138,11 +142,13 @@ export function createCampaign(db: Db, organizerProfileId: string, input: NewCam
   return saved;
 }
 
+/** Loads one campaign with its milestones, or null if it does not exist. */
 export function getCampaign(db: Db, id: string): CampaignWithMilestones | null {
   const row = db.select().from(campaigns).where(eq(campaigns.id, id)).get();
   return row ? toCampaign(row, milestonesFor(db, id)) : null;
 }
 
+/** All of an organizer's campaigns with their milestones. */
 export function listByOrganizer(db: Db, organizerProfileId: string): CampaignWithMilestones[] {
   return db
     .select()

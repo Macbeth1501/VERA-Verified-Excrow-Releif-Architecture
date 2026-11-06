@@ -8,12 +8,14 @@ import { listMilestoneViews, roleIsSynced } from "@/lib/escrow/service";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Council console | VERA" };
 
+/** Council console. Council members only: lists confirmed milestones whose payout is large enough to need several council approvals. */
 export default async function CouncilPage() {
   const { db, user } = await requirePageUser();
   if (user.role !== "council") redirect("/dashboard");
 
   const chain = escrowChain();
   const synced = roleIsSynced(db, user.id, "council");
+  const threshold = chain.configured() ? await chain.readCouncilThreshold() : null;
   const views = (await listMilestoneViews(db, chain)).filter((v) => v.state?.status === "Verified");
   const mine = (v: (typeof views)[number]) =>
     v.actions.some((a) => a.kind === "council_approval" && a.status === "CONFIRMED" && a.actorAddress === user.walletAddress.toLowerCase());
@@ -21,6 +23,13 @@ export default async function CouncilPage() {
   return (
     <main className="w-full max-w-4xl flex-1 py-12 lg:py-16">
       <PageHead title="Releases waiting for the council" lead="These milestones have been confirmed by attestors. Small payouts are released without the council. Larger ones need several council members to approve, so no single person can move a large sum." />
+      {chain.configured() ? (
+        <p data-testid="council-threshold" className="mt-6 max-w-[62ch] text-sm text-sand">
+          A release above the council approval limit needs{" "}
+          <span className="num font-medium text-ink">{threshold ?? "an unknown number of"}</span> council approvals
+          {threshold === null ? " (the blockchain could not be read)" : ""}. An admin can change this number.
+        </p>
+      ) : null}
       {!chain.configured() ? (
         <p className="mt-6 max-w-[62ch] rounded-md bg-warn-wash px-4 py-3 text-sm text-warn">
           Council actions are switched off on this server (the milestone manager or sponsor wallet is not configured).

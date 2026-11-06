@@ -3,6 +3,7 @@ import { allCursors, eventsForVaults } from "../indexer/store";
 import { vaultTotals } from "../indexer/queries";
 import { listLive } from "./service";
 
+/** Network-wide figures across all published campaigns: how much is locked, released and paid out. */
 export interface NetworkTotals {
   campaigns: number;
   /** All in mINR minor units, derived from indexed chain events, never stored. */

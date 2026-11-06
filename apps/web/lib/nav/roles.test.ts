@@ -1,3 +1,5 @@
+/** Unit tests for role-based navigation: each role's home page, its links, and detecting an identity change between tabs. */
+
 import { describe, expect, it } from "vitest";
 import { identityChange, navLinksFor, roleHome, roleLabel, type NavIdentity } from "./roles";
 

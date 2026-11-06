@@ -1,4 +1,12 @@
+# Foundry configuration for the Vera contracts (run forge from this folder).
+#   forge build   compile to out/
+#   forge test    run the Solidity tests in test/ (fuzz runs set below)
+#   forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast   deploy (see the script header)
+# Local chain for dry runs: `anvil` (http://127.0.0.1:8545, chain id 31337), then use that as RPC_URL.
+# Import paths come from remappings.txt (OpenZeppelin and forge-std live in lib/).
+
 [profile.default]
+# Contract sources, compiler output, and vendored dependencies.
 src = "src"
 out = "out"
 libs = ["lib"]

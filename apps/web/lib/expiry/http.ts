@@ -2,6 +2,7 @@ import { apiError } from "../api/errors";
 import { allow, clientKey } from "../api/rate-limit";
 import type { ExpiryFailure } from "./service";
 
+/** Maps an expiry service failure to the standard API error response. */
 export const expiryError = (f: ExpiryFailure) => apiError(f.status, f.code, f.message);
 
 /** Close and refund requests share one bucket per client: 10 requests, refilling one every 3 seconds. */

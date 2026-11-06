@@ -6,9 +6,13 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 /// @notice The slice of CampaignVault this contract uses.
 interface ICampaignVault {
+    /// @notice The organizer who owns the vault.
     function organizer() external view returns (address);
+    /// @notice The milestone manager the vault is bound to.
     function milestoneManager() external view returns (address);
+    /// @notice The mINR the vault currently holds.
     function getBalance() external view returns (uint256);
+    /// @notice Pays amount from the vault to the recipient; callable only by the manager.
     function releaseForMilestone(address to, uint256 amount) external;
 }
 
@@ -62,37 +66,64 @@ contract MilestoneManager is Ownable, ReentrancyGuard {
     mapping(address vault => mapping(uint256 index => mapping(address attestor => bool))) public hasAttested;
     mapping(address vault => mapping(uint256 index => mapping(address member => bool))) public hasApproved;
 
+    /// @notice The owner added or removed an attestor.
     event AttestorSet(address indexed attestor, bool active);
+    /// @notice The owner added or removed a council member.
     event CouncilMemberSet(address indexed member, bool active);
+    /// @notice The owner changed how many council approvals large releases need.
     event CouncilThresholdSet(uint256 threshold);
+    /// @notice The owner changed the release size above which the council must approve.
     event AutoReleaseLimitSet(uint256 limit);
+    /// @notice The organizer defined a milestone for a vault.
     event MilestoneDefined(
         address indexed vault, uint256 indexed index, uint256 targetPct, uint256 requiredAttestations, uint256 autoReleaseLimit
     );
+    /// @notice An attestor confirmed a milestone, with a proof hash.
     event MilestoneAttested(address indexed vault, uint256 indexed index, address indexed attestor, bytes32 proofHash);
+    /// @notice A milestone reached its required attestations.
     event MilestoneVerified(address indexed vault, uint256 indexed index);
+    /// @notice A council member approved a large release.
     event CouncilApproved(address indexed vault, uint256 indexed index, address indexed member);
     /// @notice The event the ledger reads: the vault itself emits nothing on release.
     event MilestoneReleased(address indexed vault, uint256 indexed index, address indexed recipient, uint256 amount);
 
+    /// @notice A required address was the zero address.
     error ZeroAddress();
+    /// @notice The caller is not an active attestor.
     error NotAttestor();
+    /// @notice The caller is not an active council member.
     error NotCouncilMember();
+    /// @notice Only the vault's own organizer may define its milestones.
     error NotVaultOrganizer();
+    /// @notice The vault is not bound to this manager.
     error VaultNotBoundToThisManager();
+    /// @notice A milestone's share must be between 1 and 100 percent.
     error InvalidTargetPct(uint256 pct);
+    /// @notice The defined milestone shares would add up to more than 100.
     error TargetPctExceeds100(uint256 total);
+    /// @notice Too few attestations required for a milestone.
     error InvalidRequiredAttestations(uint256 m);
+    /// @notice The council threshold is below the minimum.
     error InvalidCouncilThreshold(uint256 threshold);
+    /// @notice No milestone is defined at this index.
     error UnknownMilestone(uint256 index);
+    /// @notice This milestone was already released.
     error MilestoneAlreadyReleased();
+    /// @notice The milestone has not reached its required attestations.
     error MilestoneNotVerified();
+    /// @notice This attestor already attested to this milestone.
     error AlreadyAttested();
+    /// @notice This council member already approved this milestone.
     error AlreadyApproved();
+    /// @notice The vault's organizer cannot attest to their own work.
     error OrganizerCannotAttest();
+    /// @notice Release needs all milestones defined, summing to 100.
     error MilestonesNotFullyDefined(uint256 definedPct);
+    /// @notice Milestones must be released in order; expectedIndex is the next one.
     error OutOfOrder(uint256 expectedIndex);
+    /// @notice A large release needs more council approvals than it has.
     error InsufficientCouncilApprovals(uint256 have, uint256 need);
+    /// @notice The amount to release works out to zero.
     error NothingToRelease();
 
     /// @param _autoReleaseLimit Initial auto-release limit in mINR minor units.
@@ -105,18 +136,21 @@ contract MilestoneManager is Ownable, ReentrancyGuard {
 
     // ---------------------------------------------------------------- owner: role lists
 
+    /// @notice Adds or removes an attestor. Owner only.
     function setAttestor(address attestor, bool active) external onlyOwner {
         if (attestor == address(0)) revert ZeroAddress();
         isAttestor[attestor] = active;
         emit AttestorSet(attestor, active);
     }
 
+    /// @notice Adds or removes a council member. Owner only.
     function setCouncilMember(address member, bool active) external onlyOwner {
         if (member == address(0)) revert ZeroAddress();
         isCouncilMember[member] = active;
         emit CouncilMemberSet(member, active);
     }
 
+    /// @notice Sets the council approvals needed above the auto-release limit. Owner only.
     function setCouncilThreshold(uint256 threshold) external onlyOwner {
         if (threshold < MIN_COUNCIL_THRESHOLD) revert InvalidCouncilThreshold(threshold);
         councilThreshold = threshold;
@@ -235,16 +269,19 @@ contract MilestoneManager is Ownable, ReentrancyGuard {
 
     // ---------------------------------------------------------------- views
 
+    /// @notice How many milestones are defined for a vault.
     function milestoneCount(address vault) external view returns (uint256) {
         return _milestones[vault].length;
     }
 
+    /// @notice One milestone's targets, counts and status.
     function getMilestone(address vault, uint256 index) external view returns (Milestone memory) {
         return _get(vault, index);
     }
 
     // ---------------------------------------------------------------- internals
 
+    /// @notice Storage reference to a milestone; reverts if the index is not defined.
     function _get(address vault, uint256 index) private view returns (Milestone storage) {
         if (index >= _milestones[vault].length) revert UnknownMilestone(index);
         return _milestones[vault][index];

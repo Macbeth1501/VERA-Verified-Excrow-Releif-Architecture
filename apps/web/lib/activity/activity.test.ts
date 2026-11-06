@@ -1,7 +1,9 @@
+/** Unit tests for the activity feed: `listActivity` (ordering, filters, paging, counts) and its helpers. */
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, type Db } from "../db";
 import { VAULT, makeLiveCampaign } from "../donations/test-setup";
-import { DISBURSEMENT, FACTORY, FakeChain, MANAGER, REGISTRY, VAULT_A, VAULT_B, attested, beneficiary, created, donation, payout, released } from "../indexer/fake-chain";
+import { DISBURSEMENT, FACTORY, FakeChain, MANAGER, REGISTRY, VAULT_A, VAULT_B, attested, beneficiary, beneficiaryAttested, created, donation, payout, released } from "../indexer/fake-chain";
 import { syncOnce } from "../indexer/sync";
 import { ACTIVITY_TYPES, describeEvent, isEventName, listActivity, type KnownContracts } from "./activity";
 
@@ -125,5 +127,18 @@ describe("helpers", () => {
 
   it("describes a milestone event without a milestone number gracefully", () => {
     expect(describeEvent("MilestoneAttested", { actor: null, amount: null, milestoneNumber: null, campaignTitle: null })).toBe("Attestor someone confirmed a milestone.");
+  });
+});
+
+describe("beneficiary confirmation events (V2 registry, C6)", () => {
+  it("shows an attestor's confirmation in plain words, from the registry, with no fingerprint", async () => {
+    const hash = `0x${"a1".repeat(32)}`;
+    chain.events = [created(VAULT_A, 150), beneficiary(VAULT_A, 450, hash), beneficiaryAttested(VAULT_A, 460, hash, 1)];
+    await syncOnce(db, chain, config);
+    const row = listActivity(db, known).rows.find((r) => r.type === "BeneficiaryAttested")!;
+    expect(row.contract).toBe("BeneficiaryRegistry");
+    expect(row.title).toBe("Beneficiary confirmed by an attestor");
+    expect(row.detail).toContain("confirmed that a registered beneficiary exists");
+    expect(JSON.stringify(row)).not.toContain(hash);
   });
 });

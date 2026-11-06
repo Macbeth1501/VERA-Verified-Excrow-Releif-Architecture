@@ -5,7 +5,7 @@ import { indexerCursors } from "../db/schema";
 import { indexerStatus, reconcileVault, vaultLedger, vaultPayouts, vaultTotals } from "./queries";
 import { allCursors } from "./store";
 import { syncOnce } from "./sync";
-import { FakeChain, VAULT_A, VAULT_B, attested, beneficiary, closedEvent, created, donation, payout, refunded, released } from "./fake-chain";
+import { FakeChain, VAULT_A, VAULT_B, attested, beneficiary, beneficiaryAttested, closedEvent, created, donation, payout, refunded, released } from "./fake-chain";
 
 const config = { startBlock: 100, confirmations: 2, maxRange: 2000 };
 let db: Db;
@@ -251,6 +251,16 @@ describe("beneficiary events (Step 13 registry)", () => {
 
     expect(second.newEvents).toBe(0);
     expect(vaultTotals(db, VAULT_A).beneficiaryCount).toBe(1);
+  });
+
+  it("stores a BeneficiaryAttested event without counting a beneficiary or listing it in the money ledger", async () => {
+    chain.events = [created(VAULT_A, 150), beneficiary(VAULT_A, 200, H(1)), beneficiaryAttested(VAULT_A, 205, H(1), 1)];
+    const result = await syncOnce(db, chain, withRegistry);
+
+    expect(result.newEvents).toBe(3);
+    expect(vaultTotals(db, VAULT_A).beneficiaryCount).toBe(1); // the registration only
+    expect(vaultLedger(db, VAULT_A).map((e) => e.type)).toEqual(["CampaignCreated"]);
+    expect(await syncOnce(db, chain, withRegistry)).toMatchObject({ newEvents: 0 }); // not stored twice
   });
 
   it("ignores the registry entirely when no start block is configured", async () => {

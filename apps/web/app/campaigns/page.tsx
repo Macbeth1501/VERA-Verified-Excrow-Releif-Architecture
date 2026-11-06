@@ -8,6 +8,7 @@ import { vaultTotals } from "@/lib/indexer/queries";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Campaigns | VERA" };
 
+/** Public campaigns index: every published campaign with its category, goal and on-chain totals, each linking to its public audit page. */
 export default function CampaignsIndexPage() {
   const db = getDb();
   const campaigns = listLive(db);

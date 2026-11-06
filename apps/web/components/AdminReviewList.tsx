@@ -32,6 +32,7 @@ const CHAIN_LABEL: Record<ReviewItem["chainSync"], string> = {
   failed: "On-chain sync failed",
 };
 
+/** Admin review queue of organizer applications. Each item can be approved or rejected (a reason is required to reject) or re-synced to the chain; every action posts to `/api/v1/admin/organizers/{id}/...` and refreshes the page. */
 export function AdminReviewList({ items }: { items: ReviewItem[] }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);

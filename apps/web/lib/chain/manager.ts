@@ -18,6 +18,10 @@ const managerAbi = parseAbi([
   "function getMilestone(address vault, uint256 index) view returns (Milestone)",
   "function releasableAmount(address vault, uint256 index) view returns (uint256)",
   "function councilThreshold() view returns (uint256)",
+  "function autoReleaseLimit() view returns (uint256)",
+  "function setAutoReleaseLimit(uint256 limit)",
+  "function setCouncilThreshold(uint256 threshold)",
+  "error InvalidCouncilThreshold(uint256 threshold)",
   "error NotAttestor()",
   "error NotCouncilMember()",
   "error NotVaultOrganizer()",
@@ -65,6 +69,7 @@ const REASONS: Record<string, string> = {
   NothingToRelease: "There is nothing to release yet: the campaign has raised nothing beyond what was already paid.",
   VaultPaused: "The campaign's vault is paused.",
   InsufficientVaultBalance: "The vault does not hold enough to pay this milestone.",
+  InvalidCouncilThreshold: "The council needs at least 2 approvals; the contract will not go lower.",
 };
 
 function transport() {
@@ -137,12 +142,21 @@ export function createEscrowChain(): EscrowChain {
   }
 
   /** Sponsor-owned sends (release, role changes), queued so they cannot race for a nonce. */
-  async function sendAsSponsor(functionName: "release" | "setAttestor" | "setCouncilMember", args: readonly unknown[], onSent: OnSent): Promise<Tx> {
+  async function sendAsSponsor(
+    functionName: "release" | "setAttestor" | "setCouncilMember" | "setAutoReleaseLimit" | "setCouncilThreshold",
+    args: readonly unknown[],
+    onSent: OnSent,
+  ): Promise<Tx> {
     if (!manager || !env.FACTORY_OWNER_KEY) return { ok: false, error: "The milestone manager or the sponsor wallet is not configured." };
     let hash: `0x${string}` | undefined;
     try {
       const account = privateKeyToAccount(env.FACTORY_OWNER_KEY as `0x${string}`);
       await publicClient.simulateContract({ address: manager, abi: managerAbi, functionName, args: args as never, account });
+      // Changing a global safety setting is not urgent: refuse during a gas spike rather than pay for it.
+      if (functionName === "setAutoReleaseLimit" || functionName === "setCouncilThreshold") {
+        const tooExpensive = gasPriceRefusal(await publicClient.getGasPrice());
+        if (tooExpensive) return { ok: false, error: tooExpensive };
+      }
       return await withSponsorLock(async () => {
         const wallet = createWalletClient({ account, chain: polygonAmoy, transport: transport() });
         hash = await wallet.writeContract({ address: manager, abi: managerAbi, functionName, args: args as never });
@@ -200,6 +214,28 @@ export function createEscrowChain(): EscrowChain {
         return null; // includes UnknownMilestone: not defined yet
       }
     },
+
+    async readAutoReleaseLimit() {
+      if (!manager) return null;
+      try {
+        return (await publicClient.readContract({ address: manager, abi: managerAbi, functionName: "autoReleaseLimit" })).toString();
+      } catch {
+        return null;
+      }
+    },
+
+    async readCouncilThreshold() {
+      if (!manager) return null;
+      try {
+        return Number(await publicClient.readContract({ address: manager, abi: managerAbi, functionName: "councilThreshold" }));
+      } catch {
+        return null;
+      }
+    },
+
+    setCouncilThreshold: (threshold) => sendAsSponsor("setCouncilThreshold", [BigInt(threshold)], () => undefined),
+
+    setAutoReleaseLimit: (minorUnits) => sendAsSponsor("setAutoReleaseLimit", [BigInt(minorUnits)], () => undefined),
 
     async txState(txHash) {
       try {

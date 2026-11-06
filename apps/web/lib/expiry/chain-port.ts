@@ -17,6 +17,7 @@ export interface RefundState {
   amount: string;
 }
 
+/** The close/refund flow's view of the chain: configuration, reading a donor's refund, closing a campaign (sponsor-sent) and claiming a refund (donor-signed). Failures are returned, not thrown. */
 export interface ExpiryChain {
   /** False when the sponsor key is missing, so no transaction can be paid for. */
   configured(): boolean;

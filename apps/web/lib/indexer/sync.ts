@@ -2,6 +2,7 @@ import type { Db } from "../db";
 import { getCursor, insertEvents, knownVaults, setCursor } from "./store";
 import type { ChainReader, IndexerConfig, RawEvent } from "./types";
 
+/** Outcome of one sync pass: chain head, highest block eligible for indexing, new events stored and any errors. */
 export interface SyncResult {
   headBlock: number | null;
   /** Highest block eligible for indexing (head minus confirmations). */

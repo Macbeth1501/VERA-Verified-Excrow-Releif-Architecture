@@ -1,3 +1,5 @@
+/** Unit tests for the browser-side hashing helpers: SHA-256, identity-fragment normalisation and the salted identity hash. */
+
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { bytesToHex, sha256Hex, sha256HexOfFile } from "../hash";

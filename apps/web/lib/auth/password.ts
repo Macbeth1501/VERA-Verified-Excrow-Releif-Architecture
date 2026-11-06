@@ -6,10 +6,12 @@ export const MIN_PASSWORD_LENGTH = 12;
 // dozens of throwaway accounts at full cost would make the suite needlessly slow.
 const COST = process.env.NODE_ENV === "test" ? 4 : 12;
 
+/** Hashes a password with bcrypt (low cost under test, 12 otherwise). */
 export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, COST);
 }
 
+/** Checks a password against a bcrypt hash. */
 export function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }

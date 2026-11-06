@@ -11,9 +11,10 @@ It runs on **Polygon Amoy** (testnet) with a mock rupee token (`mINR`). It is a 
 1. An **organizer** is verified by an admin (mock KYB), then creates a campaign with milestones (percentages total 100) and publishes it. That deploys a dedicated escrow vault on-chain.
 2. **Donors** register with an email (a wallet is generated for them) and donate. Practice funds are minted for them and the platform sponsors gas.
 3. For each milestone, **attestors** confirm completion by submitting a hash of their evidence. The contract counts each attestor once; at the required number (at least 2) the milestone is *Verified*.
-4. A release at or below the auto-release limit (100 mINR) needs only that. Above it, **council members** must also approve (3 approvals). Then the release moves the milestone's share to the organizer.
-5. The organizer registers each **beneficiary** as a salted fingerprint made in the browser (no identity data reaches the server) and records **payouts** to them through the `Disbursement` contract.
-6. Anyone can open the **public ledger** for a campaign: money held, released and paid out, every event with a Polygonscan link, and a reconciliation badge that is green only when the database, the vault and the token balance match exactly.
+4. A release at or below the auto-release limit (100 mINR) needs only that. Above it, **council members** must also approve (3 approvals). Then the release moves the milestone's share to the organizer. An admin can change the limit (it applies to campaigns published afterwards) and the number of approvals from the admin console; the contract never allows fewer than 2.
+5. The organizer registers each **beneficiary** as a salted fingerprint made in the browser (no identity data reaches the server). An independent **attestor** who has met the person confirms they exist, again by fingerprint only, and only then can the organizer record a **payout** to them through the `Disbursement` contract. That check is enforced by the app and database; the `BeneficiaryRegistryV2` and `DisbursementV2` contracts (deployed on Amoy, not yet switched on in the running app) make the chain enforce it too.
+6. If a campaign passes its **end date**, goes a set number of days with no milestone release, or finishes with money left, anyone can close it and each donor claims their share back from the vault (refunds are pro rata; money already released is never clawed back).
+7. Anyone can open the **public ledger** for a campaign: money held, released and paid out, every event with a Polygonscan link, and a reconciliation badge that is green only when the database, the vault and the token balance match exactly.
 
 Plain-words version, with a glossary, lives in the running app at `/how-it-works`.
 
@@ -66,8 +67,8 @@ You need an RPC URL, the deployed contract addresses (below), two generated secr
 pnpm dev         # Next.js dev server on http://localhost:3000
 pnpm build       # production build
 pnpm lint        # eslint
-pnpm test        # forge test (contracts): 94 tests, fuzz at 10,000 runs
-pnpm test:web    # vitest (web): 397 pass, 3 opt-in live tests skipped
+pnpm test        # forge test (contracts): 122 tests, fuzz at 10,000 runs
+pnpm test:web    # vitest (web): 483 pass, 6 opt-in live tests skipped
 pnpm --filter @vera/types typecheck
 ```
 
@@ -104,9 +105,33 @@ The app refuses sponsored actions when gas is above 150 gwei, so a spike cannot 
 
 View them on [amoy.polygonscan.com](https://amoy.polygonscan.com). Factory campaigns #0-#3 predate the real manager and are demo-only.
 
+## Reproduce the results
+
+All of this is free and read-only; none of it needs a funded wallet. The collected numbers, transaction hashes and Polygonscan links are in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
+
+```bash
+# Contracts: tests, coverage, gas, static analysis (needs Foundry; Slither via pip)
+cd contracts
+forge test                         # 122 tests, 9 suites, fuzz at 10,000 runs
+forge coverage --report summary    # lines, statements, branches, functions per contract
+forge test --gas-report            # min / avg / median / max per function
+slither . --exclude-dependencies   # 9 results: 1 medium (false positive), 7 low, 1 informational
+cd ..
+
+# Independent check of the live demo vault (Node 18+, no install, no app code):
+# rebuilds the balance from raw logs and compares it with getBalance() and the token's balanceOf()
+node scripts/verify-vault.mjs
+
+# Inspect any of the live transactions listed in docs/EVIDENCE.md
+cast receipt <hash> --rpc-url https://polygon-amoy.drpc.org
+cast run <hash> --rpc-url https://polygon-amoy.gateway.tenderly.co   # call trace; needs an RPC with historical state
+```
+
+To re-run the full scenario yourself, use [`docs/manual_test_local.md`](docs/manual_test_local.md) (free, local anvil chain) or [`docs/manual_test_live.md`](docs/manual_test_live.md) (spends testnet POL).
+
 ## Security notes
 
-- The contracts were reviewed with Slither across the whole tree: 4 informational/low findings, 0 medium/high (details in the progress log). Money-moving functions follow checks-effects-interactions and are `nonReentrant`.
+- The contracts were reviewed with Slither across the whole tree: 9 results on the project code (Slither 0.11.6, re-run 2026-11-06): 0 high, 1 medium that is a false positive (an intentionally zero-initialised loop sum), 7 low and 1 informational pragma note. The earlier "8" was the same list without the pragma note; 4 before campaign expiry was added (the 4 new ones are timestamp comparisons). Details in [`docs/EVIDENCE.md`](docs/EVIDENCE.md). Money-moving functions follow checks-effects-interactions and are `nonReentrant`.
 - Funds leave a vault only through `MilestoneManager`, whose address is immutable in the vault; organizers have no transfer privilege.
 - Beneficiary identities are never sent to the server or written on-chain, only salted hashes.
 - This is a testnet MVP. KYB is mocked, there is no wallet-signature login (own-wallet addresses are stored unverified), and it has not had an external audit. Do not use it with real funds.

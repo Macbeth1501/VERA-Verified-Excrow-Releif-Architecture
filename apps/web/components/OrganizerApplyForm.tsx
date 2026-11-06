@@ -6,6 +6,7 @@ import { fileToBase64, sha256HexOfFile } from "@/lib/hash";
 
 type FieldErrors = Record<string, string[] | undefined>;
 
+/** Organizer verification application: legal name, registration number, jurisdiction and one supporting document (hashed in the browser), posted to `/api/v1/organizers/verify`. */
 export function OrganizerApplyForm() {
   const router = useRouter();
   const [legalName, setLegalName] = useState("");

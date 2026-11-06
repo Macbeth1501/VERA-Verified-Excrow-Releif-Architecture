@@ -11,6 +11,7 @@ import type { ExpiryChain } from "./chain-port";
  * There is no database record of either: the chain events are the record and the indexer reads them.
  */
 
+/** A refused close or refund operation: HTTP status, enumerable error code and a message safe to show. */
 export type ExpiryFailure = {
   ok: false;
   status: number;
@@ -26,6 +27,7 @@ export type ExpiryFailure = {
   message: string;
 };
 
+/** Result of a close or refund operation: `{ ok: true, ...data }` on success, an `ExpiryFailure` otherwise. */
 export type Outcome<T> = ({ ok: true } & T) | ExpiryFailure;
 
 const fail = (status: number, code: ExpiryFailure["code"], message: string): ExpiryFailure => ({ ok: false, status, code, message });
@@ -56,6 +58,7 @@ export async function closeCampaign(db: Db, chain: ExpiryChain, campaignId: stri
   return { ok: true, txHash: sent.txHash };
 }
 
+/** What a donor can claim from a closed campaign: whether it is closed, whether they have claimed, and the amount. */
 export interface RefundView {
   closed: boolean;
   claimed: boolean;

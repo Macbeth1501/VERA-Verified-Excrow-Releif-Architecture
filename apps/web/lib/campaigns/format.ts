@@ -6,15 +6,17 @@ export function shortAddress(address: string): string {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
- * Formatted by hand in UTC rather than with Intl: month abbreviations differ between ICU
- * versions, so an Intl format could render differently on the server and in the browser and
- * cause a hydration mismatch.
+ * Indian Standard Time (UTC+05:30, no daylight saving), formatted by hand rather than with Intl:
+ * month abbreviations differ between ICU versions, so an Intl format could render differently on
+ * the server and in the browser and cause a hydration mismatch. Machine-readable data (API,
+ * exports, database) stays in ISO 8601 UTC.
  */
-export function formatUtc(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
+export function formatIst(iso: string): string {
+  const utc = new Date(iso);
+  if (Number.isNaN(utc.getTime())) return iso;
+  const date = new Date(utc.getTime() + 330 * 60_000);
   const two = (n: number) => String(n).padStart(2, "0");
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${two(date.getUTCHours())}:${two(date.getUTCMinutes())} UTC`;
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${two(date.getUTCHours())}:${two(date.getUTCMinutes())} IST`;
 }
 
 /** Basis points as a percentage with two decimals: 2600 -> "26.00%". */

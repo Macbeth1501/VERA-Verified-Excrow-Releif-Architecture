@@ -1,3 +1,5 @@
+/** Unit tests for campaign input validation: the main schema, the expiry schedule, milestone percentage sums and confirmations per milestone. */
+
 import { describe, expect, it } from "vitest";
 import { createCampaignSchema, sumPct } from "./validation";
 import { CATEGORY_ADMIN_CEILING_PCT } from "./ceilings";

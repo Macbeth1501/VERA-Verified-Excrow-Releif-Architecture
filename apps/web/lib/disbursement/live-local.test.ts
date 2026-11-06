@@ -78,6 +78,14 @@ describe.skipIf(!live)("local anvil: release, register a beneficiary, record the
       expect(apply.status).toBe(201);
       expect((await call(decisionRoute.POST as never, admin.cookie, { decision: "approve" }, apply.body.profile.id)).body.profile.chainSync).toBe("synced");
 
+      // The attestors must exist before the campaign: creating it refuses more confirmations than registered attestors (C3).
+      const earlyRolesRoute = await import("@/app/api/v1/admin/roles/route");
+      for (const a of attestors) {
+        const r = await earlyRolesRoute.POST(
+          new Request("http://localhost/x", { method: "POST", headers: { "content-type": "application/json", cookie: admin.cookie }, body: JSON.stringify({ email: a.email, role: "attestor", active: true }) }),
+        );
+        expect((await r.json()).grant.chainSync).toBe("synced");
+      }
       const campaignsRoute = await import("@/app/api/v1/campaigns/route");
       const created = await call(campaignsRoute.POST as never, org.cookie, {
         title: "Local payout test campaign", summary: "End to end test of release, beneficiary registration and payout.",
@@ -138,6 +146,16 @@ describe.skipIf(!live)("local anvil: release, register a beneficiary, record the
       const disburseRoute = await import("@/app/api/v1/milestones/[id]/disburse/route");
       const disburse = (cookie: string, id: string, body: unknown) => call(disburseRoute.POST as never, cookie, body, id);
 
+      // C5: registered on-chain is not enough. The app refuses a payout until an attestor confirms the person exists.
+      const unverified = await disburse(org.cookie, m1, { beneficiaryId, amountMinorUnits: "30000000" });
+      expect(unverified.status).toBe(409);
+      expect(unverified.body.error.code).toBe("BENEFICIARY_NOT_VERIFIED");
+      const attestationsRoute = await import("@/app/api/v1/campaigns/[id]/beneficiaries/attestations/route");
+      const confirmed = await call(attestationsRoute.POST as never, attestors[0].cookie, { identityHash: H1 }, campaignId);
+      expect(confirmed.status).toBe(201);
+      expect(confirmed.body).toMatchObject({ matched: true, verified: true });
+      log("payout refused until an attestor confirmed the beneficiary, then confirmed");
+
       // ---- refusals, each with the plain-language reason
       const donorTry = await disburse(donor.cookie, m1, { beneficiaryId, amountMinorUnits: "30000000" });
       expect(donorTry.status).toBe(403);
@@ -160,6 +178,26 @@ describe.skipIf(!live)("local anvil: release, register a beneficiary, record the
       const notOrganizer = await chain.disburse({ address: donor.walletAddress, keyEnc: strangerKey }, vault, 0, H1, "1000000", `0x${"cd".repeat(32)}`, () => undefined);
       expect(notOrganizer).toMatchObject({ ok: false, error: "Only the campaign's organizer can record a payout." });
       log("contract refusals mapped to plain sentences");
+
+      // C6: with the V2 contracts the CHAIN refuses an unconfirmed beneficiary, even if the app is bypassed.
+      // (On the original contracts this same direct call would succeed, which is exactly the gap C6 closes.)
+      const v2 = process.env.BENEFICIARY_REGISTRY_V2 === "1";
+      if (v2) {
+        const H2 = `0x${"b2".repeat(32)}`;
+        const second = await call(beneficiariesRoute.POST as never, org.cookie, { identityHash: H2, payoutMethod: "bank transfer" }, campaignId);
+        expect(second.status).toBe(201);
+        const ghost = await chain.disburse({ address: org.walletAddress, keyEnc: orgKey }, vault, 0, H2, "1000000", `0x${"cd".repeat(32)}`, () => undefined);
+        expect(ghost).toMatchObject({ ok: false, error: "That beneficiary has not been confirmed by enough independent attestors on the blockchain yet." });
+        const regAbi = parseAbi(["function isVerified(address,bytes32) view returns (bool)", "function attestationCount(address,bytes32) view returns (uint256)"]);
+        const publicClient = createPublicClient({ chain: polygonAmoy, transport: http(env.RPC_URL) });
+        const registryAddress = env.BENEFICIARY_REGISTRY_ADDRESS as `0x${string}`;
+        const read = (fn: "isVerified" | "attestationCount", h: string) =>
+          publicClient.readContract({ address: registryAddress, abi: regAbi, functionName: fn, args: [vault as `0x${string}`, h as `0x${string}`] });
+        expect(await read("isVerified", H1)).toBe(true);
+        expect(await read("isVerified", H2)).toBe(false);
+        expect(await read("attestationCount", H1)).toBe(1n);
+        log("V2: the contract refused a payout to an unconfirmed beneficiary on a direct call, and the registry shows H1 verified and H2 not");
+      }
 
       // ---- the payout: approve, then disburse, as the organizer
       const paid = await disburse(admin.cookie, m1, { beneficiaryId, amountMinorUnits: "30000000" });
@@ -208,6 +246,19 @@ describe.skipIf(!live)("local anvil: release, register a beneficiary, record the
       expect(ledger!.payouts.totalMinorUnits).toBe("30000000");
       expect(ledger!.escrow.heldMinorUnits).toBe("30000000"); // payouts leave the organizer's wallet, not the vault
       expect(ledger!.reconciliation).toMatchObject({ status: "match", payouts: "match" });
+
+      if (v2) {
+        // The indexer read the registry's BeneficiaryAttested event; it shows on the public activity page.
+        const activityRoute = await import("@/app/api/v1/activity/route");
+        let found = 0;
+        for (let i = 0; i < 20 && found === 0; i++) {
+          const res = await activityRoute.GET(new Request("http://localhost/x?type=BeneficiaryAttested"));
+          found = ((await res.json()) as { total: number }).total;
+          if (found === 0) await new Promise((r) => setTimeout(r, 2000));
+        }
+        expect(found).toBe(1);
+        log("V2: the BeneficiaryAttested event was indexed and appears on the activity page");
+      }
 
       const exportRoute = await import("@/app/api/v1/campaigns/[id]/export/route");
       const csv = await (await exportRoute.GET(new Request("http://localhost/x?format=csv"), { params: Promise.resolve({ id: campaignId }) })).text();

@@ -6,6 +6,7 @@ import { documents, type DocumentRow } from "../db/schema";
 /** Small supporting documents only (KYB certificates, milestone evidence photos/PDFs). */
 export const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
 
+/** File types accepted for documents: JPEG, PNG, WEBP, GIF and PDF. */
 export const ALLOWED_DOCUMENT_MIME_TYPES = [
   "image/jpeg",
   "image/png",
@@ -14,21 +15,25 @@ export const ALLOWED_DOCUMENT_MIME_TYPES = [
   "application/pdf",
 ] as const;
 
+/** Thrown when an uploaded document exceeds `MAX_DOCUMENT_BYTES`. */
 export class DocumentTooLargeError extends Error {
   constructor() {
     super(`The file is too large. The limit is ${Math.floor(MAX_DOCUMENT_BYTES / (1024 * 1024))} MB.`);
   }
 }
+/** Thrown when an uploaded document's type is not in `ALLOWED_DOCUMENT_MIME_TYPES`. */
 export class DocumentTypeNotAllowedError extends Error {
   constructor() {
     super("That file type is not supported. Use a JPEG, PNG, WEBP, GIF or PDF.");
   }
 }
+/** Thrown when the uploaded bytes do not hash to the fingerprint the client sent. */
 export class DocumentHashMismatchError extends Error {
   constructor() {
     super("The uploaded file does not match its fingerprint. Please try attaching it again.");
   }
 }
+/** Thrown when a requested document does not exist. */
 export class DocumentNotFoundError extends Error {
   constructor() {
     super("Document not found");
@@ -78,6 +83,7 @@ export function saveDocument(
   return id;
 }
 
+/** Loads a stored document row by id, or null if there is none. */
 export function getDocument(db: Db, id: string): DocumentRow | null {
   return db.select().from(documents).where(eq(documents.id, id)).get() ?? null;
 }

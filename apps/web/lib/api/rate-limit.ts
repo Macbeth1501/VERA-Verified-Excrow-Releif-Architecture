@@ -9,6 +9,7 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
+/** Token-bucket settings: the burst `capacity` and how many tokens refill each second. */
 export interface RateLimitOptions {
   capacity: number;
   refillPerSecond: number;
@@ -25,10 +26,12 @@ export function allow(key: string, { capacity, refillPerSecond }: RateLimitOptio
   return ok;
 }
 
+/** Identifies the caller for rate limiting: the first `x-forwarded-for` address, or `local` when absent. */
 export function clientKey(request: Request): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }
 
+/** Empties all buckets. Used by tests so one case's requests do not count against the next. */
 export function resetRateLimits(): void {
   buckets.clear();
 }

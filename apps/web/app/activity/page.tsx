@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { EventName } from "@/lib/indexer/types";
 import { ACTIVITY_TITLE, ACTIVITY_TYPES, isEventName } from "@/lib/activity/activity";
 import { buildActivity, knownContractsFromEnv } from "@/lib/activity/load";
-import { formatUtc } from "@/lib/campaigns/format";
+import { formatIst } from "@/lib/campaigns/format";
 import { listLive } from "@/lib/campaigns/service";
 import { getDb } from "@/lib/db";
 import { explorerAddressUrl, explorerTxUrl } from "@/lib/explorer";
@@ -26,6 +26,7 @@ const BADGE: Record<string, string> = {
   CouncilApproved: CONFIRM,
   MilestoneReleased: MONEY_OUT,
   BeneficiaryRegistered: NEUTRAL,
+  BeneficiaryAttested: CONFIRM,
   PayoutRecorded: MONEY_OUT,
   CampaignClosed: NEUTRAL,
   RefundClaimed: MONEY_OUT,
@@ -41,6 +42,7 @@ const SUMMARY: { label: string; note: string; types: EventName[] }[] = [
 
 const shortHash = (h: string) => `${h.slice(0, 10)}...${h.slice(-6)}`;
 
+/** Builds an `/activity` URL that keeps the campaign and event-type filters and the page number, dropping any that are unset. */
 function href(params: { campaign?: string; type?: string; page?: number }) {
   const q = new URLSearchParams();
   if (params.campaign) q.set("campaign", params.campaign);
@@ -53,6 +55,7 @@ function href(params: { campaign?: string; type?: string; page?: number }) {
 const FIELD = "min-h-10 rounded-md border border-rule-strong bg-well px-3 text-ink";
 const LINK = "inline-flex min-h-8 items-center underline";
 
+/** Public chain-activity page: every indexed on-chain event, newest first, with filters for campaign and event type, paging, and a four-count summary. Read-only; it never writes to the chain. */
 export default async function ActivityPage({ searchParams }: { searchParams: Promise<{ campaign?: string; type?: string; page?: string }> }) {
   const sp = await searchParams;
   const db = getDb();
@@ -161,13 +164,13 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
       ) : (
         <ol className="mt-2" data-testid="activity-list">
           {data.rows.map((r, i) => {
-            const day = formatUtc(r.timestamp).split(",")[0];
-            const newDay = i === 0 || formatUtc(data.rows[i - 1].timestamp).split(",")[0] !== day;
+            const day = formatIst(r.timestamp).split(",")[0];
+            const newDay = i === 0 || formatIst(data.rows[i - 1].timestamp).split(",")[0] !== day;
             return (
               <li key={r.id} data-testid="activity-row">
                 {newDay ? <p className="num border-b border-rule-strong pb-2 pt-8 font-display text-lg text-ink">{day}</p> : null}
                 <div className="grid gap-x-8 gap-y-1 border-b border-rule py-4 md:grid-cols-[7rem_1fr]">
-                  <p className="num text-sm text-dim">{formatUtc(r.timestamp).split(",")[1]?.trim()}</p>
+                  <p className="num text-sm text-dim">{formatIst(r.timestamp).split(",")[1]?.trim()}</p>
                   <div className="min-w-0">
                     <p className="text-ink">
                       <span className={`mr-2 inline-block rounded-full border px-2.5 py-0.5 align-middle text-[13px] font-medium ${BADGE[r.type]}`}>{r.title}</span>

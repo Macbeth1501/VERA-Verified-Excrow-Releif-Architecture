@@ -7,6 +7,7 @@ import { createDonationSchema } from "@/lib/donations/validation";
 import type { DonationView } from "@/lib/donations/service";
 import { DonationProgress } from "./DonationProgress";
 
+/** Which variant of the donate panel to show: a sign-in prompt, an own-wallet notice, donations switched off, a closed campaign, or the donation form. */
 export type DonateState = "signed_out" | "own_wallet" | "off" | "closed" | "ready";
 
 const QUICK_AMOUNTS = ["100", "500", "1000"];
@@ -14,10 +15,12 @@ const BOX = "rounded-lg border border-rule p-6 ";
 const INPUT =
   "mt-1 w-full rounded-md border border-rule-strong bg-well px-3 py-2 text-ink shadow-sm focus:border-copper focus:outline-none ";
 
+/** Shared heading for every donate-panel variant. */
 function Heading() {
   return <h2 className="text-lg font-semibold text-ink ">Donate to this campaign</h2>;
 }
 
+/** A donate panel variant that shows only a message, with no form. */
 function Notice({ children }: { children: React.ReactNode }) {
   return (
     <section className={BOX}>
@@ -27,6 +30,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Donation panel on a campaign's public page. Renders a notice for every state except `ready`, where it takes an amount, posts it to `/api/v1/donations` and hands the result to `DonationProgress`. */
 export function DonatePanel({
   campaignId,
   campaignHref,

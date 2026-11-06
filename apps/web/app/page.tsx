@@ -20,6 +20,7 @@ async function loadTotals(): Promise<NetworkTotals | null> {
   return networkTotals(db);
 }
 
+/** Landing page: the pitch, the live network totals (omitted when the chain reader is off) and links to the campaigns and chain-activity pages. */
 export default async function Home() {
   const totals = await loadTotals();
   const figures: Partial<Record<StageKey, string>> | undefined = totals

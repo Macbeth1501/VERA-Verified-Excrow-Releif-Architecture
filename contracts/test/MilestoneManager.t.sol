@@ -6,6 +6,13 @@ import {MockINR} from "../src/MockINR.sol";
 import {CampaignVault} from "../src/CampaignVault.sol";
 import {MilestoneManager} from "../src/MilestoneManager.sol";
 
+/// @title MilestoneManagerTest
+/// @notice Tests for the milestone lifecycle (Pending -> Verified -> Released): M-of-N attestor
+///         verification (no double counting, no single-attestor milestones), automatic release
+///         under the limit, council approval above it, in-order and once-only release, a 100%
+///         milestone total before release, role management by the owner, and a paused vault
+///         blocking release without corrupting state.
+/// @dev Includes a fuzz test that the manager never pays out more than was raised.
 contract MilestoneManagerTest is Test {
     MockINR token;
     MilestoneManager mgr;

@@ -24,6 +24,10 @@ const beneficiaryRegistered = parseAbiItem(
   "event BeneficiaryRegistered(address indexed vault, bytes32 indexed identityHash, bytes32 photoHash, uint256 index)",
 );
 
+const beneficiaryAttested = parseAbiItem(
+  "event BeneficiaryAttested(address indexed vault, bytes32 indexed identityHash, address indexed attestor, uint256 count)",
+);
+
 const payoutRecorded = parseAbiItem(
   "event PayoutRecorded(address indexed vault, uint256 indexed milestoneIndex, bytes32 indexed identityHash, uint256 amount, bytes32 payoutRef, address organizer)",
 );
@@ -124,26 +128,38 @@ export function createChainReader(
 
     async registryEvents(fromBlock, toBlock) {
       if (!registryAddress) return [];
+      // Both events in one query. The original registry never emits BeneficiaryAttested, so it just returns none.
       const logs = await client.getLogs({
         address: registryAddress as `0x${string}`,
-        event: beneficiaryRegistered,
+        events: [beneficiaryRegistered, beneficiaryAttested],
         fromBlock: BigInt(fromBlock),
         toBlock: BigInt(toBlock),
       });
-      return logs.map<RawEvent>((log) => ({
-        name: "BeneficiaryRegistered",
-        contract: log.address,
-        vault: log.args.vault ?? "",
-        blockNumber: Number(log.blockNumber),
-        txHash: log.transactionHash,
-        logIndex: log.logIndex,
-        args: {
+      return logs.map((log): RawEvent => {
+        const base = {
+          contract: log.address,
+          vault: log.args.vault ?? "",
+          blockNumber: Number(log.blockNumber),
+          txHash: log.transactionHash,
+          logIndex: log.logIndex,
+        };
+        if (log.eventName === "BeneficiaryAttested") {
+          const args: Record<string, string> = {
+            vault: log.args.vault ?? "",
+            identityHash: log.args.identityHash ?? "",
+            attestor: log.args.attestor ?? "",
+            count: String(log.args.count),
+          };
+          return { ...base, name: "BeneficiaryAttested", args };
+        }
+        const args: Record<string, string> = {
           vault: log.args.vault ?? "",
           identityHash: log.args.identityHash ?? "",
           photoHash: log.args.photoHash ?? "",
           index: String(log.args.index),
-        },
-      }));
+        };
+        return { ...base, name: "BeneficiaryRegistered", args };
+      });
     },
 
     async disbursementEvents(fromBlock, toBlock) {

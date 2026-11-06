@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+/** Retry/publish control for a campaign that is not yet on-chain: calls the deploy route, then registers the milestones, and shows any error inline. */
 export function PublishCampaignButton({ campaignId, label }: { campaignId: string; label: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

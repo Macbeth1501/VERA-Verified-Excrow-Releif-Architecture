@@ -26,6 +26,7 @@ export const metadata: Metadata = {
   description: "Milestone-gated escrow crowdfunding and disaster relief (testnet demo).",
 };
 
+/** Root layout shared by every page: global styles, the three web fonts, a skip-to-content link and the site navigation. */
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -7,6 +7,7 @@ import type { VaultDeployResult } from "../campaigns/service";
 import { getEnv, parseRpcUrls } from "../env";
 import { gasPriceRefusal, topUpGas } from "./sponsor";
 
+/** The slice of the CampaignFactory ABI this app calls or decodes: createCampaign, the organizer and ceiling views, and the CampaignCreated event. */
 export const factoryAbi = parseAbi([
   "struct MilestoneInput { uint256 targetPct; }",
   "function createCampaign(uint8 category, uint256 fundingGoal, MilestoneInput[] milestones, uint256 adminCapPct, uint64 deadline, uint64 inactivityWindow) returns (uint256 campaignId, address vault)",
@@ -21,6 +22,7 @@ const FALLBACK_GAS = 2_000_000n;
 /** The vault is a large contract to deploy (about 1.6M gas); never send with less than this. */
 const MIN_GAS_LIMIT = 2_200_000n;
 
+/** Inputs for deploying a campaign's vault through the factory: who the organizer is, the money and milestone terms, and the schedule. */
 export interface DeployVaultParams {
   organizerAddress: string;
   /** AES-GCM encrypted key of the organizer's generated wallet; null for a donor-supplied address. */

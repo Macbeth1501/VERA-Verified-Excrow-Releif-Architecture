@@ -10,4 +10,5 @@ export const disburseSchema = z.object({
   amountMinorUnits: z.string().regex(/^[1-9][0-9]{0,17}$/, "Enter a payout amount"),
 });
 
+/** Validated payout request input. */
 export type DisburseInput = z.infer<typeof disburseSchema>;

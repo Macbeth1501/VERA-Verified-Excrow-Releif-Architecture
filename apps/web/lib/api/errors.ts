@@ -35,6 +35,9 @@ export type ErrorCode =
   | "REGISTRATION_PENDING"
   | "DISBURSEMENT_NOT_CONFIGURED"
   | "BENEFICIARY_NOT_FOUND"
+  | "BENEFICIARY_NOT_VERIFIED"
+  | "ALREADY_ATTESTED"
+  | "ATTESTATION_PENDING"
   | "MILESTONE_NOT_RELEASED"
   | "ALREADY_DISBURSED"
   | "EXCEEDS_RELEASED"
@@ -51,6 +54,7 @@ export type ErrorCode =
   | "NO_WALLET_KEY"
   | "INTERNAL_ERROR";
 
+/** Builds the standard JSON error response `{ error: { code, message, details? } }` with the given HTTP status, so every route fails in the same enumerable shape. */
 export function apiError(
   status: number,
   code: ErrorCode,

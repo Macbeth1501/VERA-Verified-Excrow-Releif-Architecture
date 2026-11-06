@@ -8,11 +8,13 @@ import type { RawEvent } from "./types";
  * may insert into chain_events (SPDD 11.1: fund figures are read-only projections).
  */
 
+/** The last block fully read for a stream, or null if the stream has never been read. */
 export function getCursor(db: Db, stream: string): number | null {
   const row = db.select().from(indexerCursors).where(eq(indexerCursors.stream, stream)).get();
   return row ? row.lastBlock : null;
 }
 
+/** Records the last block read for a stream, creating or updating its cursor. */
 export function setCursor(db: Db, stream: string, lastBlock: number): void {
   const updatedAt = new Date().toISOString();
   db.insert(indexerCursors)
@@ -21,6 +23,7 @@ export function setCursor(db: Db, stream: string, lastBlock: number): void {
     .run();
 }
 
+/** Every stream's cursor with its last update time. */
 export function allCursors(db: Db): Array<{ stream: string; lastBlock: number; updatedAt: string }> {
   return db.select().from(indexerCursors).all();
 }
@@ -51,6 +54,7 @@ export function insertEvents(db: Db, events: RawEvent[], timestamps: Map<number,
   return inserted;
 }
 
+/** A vault's indexed events in chain order (block, then log index). */
 export function eventsForVault(db: Db, vault: string): ChainEventRow[] {
   return db
     .select()
@@ -71,6 +75,7 @@ export function knownVaults(db: Db): Array<{ vault: string; createdAtBlock: numb
     .map((r) => ({ vault: r.vaultAddress, createdAtBlock: r.blockNumber }));
 }
 
+/** Indexed events for several vaults at once (addresses compared lower-cased); empty input returns no rows. */
 export function eventsForVaults(db: Db, vaults: string[]): ChainEventRow[] {
   if (vaults.length === 0) return [];
   return db

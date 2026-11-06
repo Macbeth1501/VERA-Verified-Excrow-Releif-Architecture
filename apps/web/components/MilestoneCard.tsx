@@ -5,6 +5,7 @@ import type { MilestoneView } from "@/lib/escrow/service";
 import { ActionButton } from "./ActionButton";
 import { AttestForm } from "./AttestForm";
 
+/** Which action a milestone card offers: confirm it (attestor), approve its release (council) or release it (anyone allowed to trigger release). */
 export type CardMode = "attest" | "approve" | "release";
 
 const STATUS_TONE: Record<string, string> = {

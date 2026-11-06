@@ -6,6 +6,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "./schema";
 import { getEnv } from "../env";
 
+/** The typed Drizzle handle over the SQLite database. */
 export type Db = BetterSQLite3Database<typeof schema>;
 
 /**
@@ -25,6 +26,7 @@ export function createDb(file: string): Db {
 // Cached on globalThis so Next.js dev hot-reloads do not open a new connection each time.
 const globalForDb = globalThis as unknown as { __veraDb?: Db };
 
+/** Returns the process-wide database, creating it from `DATABASE_URL` on first use. */
 export function getDb(): Db {
   if (!globalForDb.__veraDb) globalForDb.__veraDb = createDb(getEnv().DATABASE_URL);
   return globalForDb.__veraDb;
@@ -35,4 +37,5 @@ export function resetDbForTests(): void {
   globalForDb.__veraDb = undefined;
 }
 
+/** Re-exports the table definitions so callers can import them alongside `Db`. */
 export { schema };

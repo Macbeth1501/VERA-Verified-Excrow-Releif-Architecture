@@ -231,7 +231,7 @@ describe("listing beneficiaries", () => {
     expect(r.ok && r.beneficiaries.map((b) => b.identityHash)).toEqual([H1, H2]);
     if (r.ok) {
       expect(Object.keys(r.beneficiaries[0]).sort()).toEqual(
-        ["createdAt", "error", "id", "identityHash", "payoutMethod", "photoHash", "status", "txHash"],
+        ["attestations", "createdAt", "error", "id", "identityHash", "payoutMethod", "photoHash", "requiredAttestations", "status", "txHash", "verified"],
       );
     }
     expect(listBeneficiaries(db, admin, campaign.id).ok).toBe(true);

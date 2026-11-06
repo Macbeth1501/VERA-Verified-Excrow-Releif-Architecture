@@ -5,6 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {MockINR} from "../src/MockINR.sol";
 import {CampaignVault} from "../src/CampaignVault.sol";
 
+/// @title CampaignVaultTest
+/// @notice Tests for CampaignVault basics: deposits (and the zero-amount revert), the manager
+///         being fixed at construction, only the manager being able to release funds, and a
+///         paused vault refusing deposits. Expiry and refunds live in CampaignVaultRefund.t.sol.
+/// @dev Includes a fuzz test over arbitrary deposit amounts.
 contract CampaignVaultTest is Test {
     MockINR internal token;
     CampaignVault internal vault;

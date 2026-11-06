@@ -17,7 +17,7 @@ All commands are **Git Bash** (Unix syntax) and use Foundry's `cast`, which is a
 | Currency | POL (used to pay gas) |
 | Private key | Stored in `contracts/.env` as `DEPLOYER_PRIVATE_KEY`. Never paste it into chat, docs or commits. |
 | Explorer page | https://amoy.polygonscan.com/address/0xb2Ab1471d98909237B3F3828E7422182584E11E3 |
-| Balance on 2026-10-26 | **50.64 POL** read on-chain (35.643 after the last live run on 2026-09-30, topped up since; earlier history: was about 0.01 on 2026-09-19 after deploying MilestoneManager at a gas spike, 1.41 POL, and running live tests; topped up substantially since; 2026-09-30 spent about 1.15 POL: 0.032 on the `Disbursement` deploy and 0.283 + 0.283 + 0.300 + 0.283 on four live test runs, one cut off, one failed). Comfortable for further testing. |
+| Balance on 2026-10-26 | **50.325 POL** after the user's full live walkthrough (50.64 before the new Factory deploy, 0.094 POL; about 0.22 POL for the walkthrough; 35.643 after the last live run on 2026-09-30, topped up since; earlier history: was about 0.01 on 2026-09-19 after deploying MilestoneManager at a gas spike, 1.41 POL, and running live tests; topped up substantially since; 2026-09-30 spent about 1.15 POL: 0.032 on the `Disbursement` deploy and 0.283 + 0.283 + 0.300 + 0.283 on four live test runs, one cut off, one failed). Comfortable for further testing. |
 
 Related deployed contracts (for reference):
 
@@ -25,7 +25,7 @@ Related deployed contracts (for reference):
 |---|---|
 | MockINR | `0x9b6f00a1ce627a3e0d2da601253704084d8fc52c` |
 | MilestoneManager | `0xe6d7222dDe3eE4b9688269427631aDF49229e747` |
-| CampaignFactory | `0x6931E776da5db1D9e5890407FE268705D70740bD` |
+| CampaignFactory | `0xcBA47322e213107C19Be706e6817629744A42364` (block 51136547; replaced the old `0x6931E776da5db1D9e5890407FE268705D70740bD` on 2026-10-26) |
 | BeneficiaryRegistry | `0xA4BF48D348246f66281B8Ca191F3981e15E5C54D` |
 | Disbursement | `0x8305ECfbd9365efF27efD6f360C36589C006e5eA` (block 48925371) |
 

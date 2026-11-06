@@ -93,7 +93,7 @@ classDiagram
         +address milestoneManager
         +mapping(address => bool) isOrganizerVerified
         +mapping(CampaignCategory => uint256) categoryAdminCeilingPct
-        +createCampaign(...) address vault
+        +createCampaign(category, goal, milestones, adminCapPct, deadline, inactivityWindow) address vault
         +setOrganizerVerified(address, bool)
     }
 
@@ -104,6 +104,8 @@ classDiagram
         +deposit(uint256 amount)
         +releaseForMilestone(address to, uint256 amount)
         +getBalance() uint256
+        +closableReason() / close()
+        +claimRefund()
         +pause() / unpause()
     }
 
@@ -114,7 +116,7 @@ classDiagram
         +mapping(address => bool) isCouncilMember
         +defineMilestone(address vault, ...)
         +submitAttestation(address vault, uint256 index, bytes32 proofHash)
-        +approveCouncil(address vault, uint256 index)
+        +councilApprove(address vault, uint256 index)
         +release(address vault, uint256 index)
     }
 
@@ -148,6 +150,7 @@ classDiagram
     2.  **Overhead Ceiling Enforcement**: Hard-coded administrative fee caps per category (`DisasterRelief = 10%`, `Medical = 15%`, `Community = 20%`). Any campaign declaring `adminCapPct > categoryCeiling` reverts on-chain.
     3.  **Milestone Percentage Conservation**: The sum of milestone target percentages must equal exactly `100%` ($\sum \text{targetPct}_i = 100$).
     4.  **Immutable Binding**: Deploys a new `CampaignVault` per campaign and binds it permanently to the verified `MilestoneManager`.
+    5.  **Campaign Schedule**: `createCampaign` takes a `deadline` (in the future, at most 3 years out) and an `inactivityWindow` (1 hour to 3 years); anything else reverts (`InvalidDeadline`, `InvalidInactivityWindow`). The vault stores both immutably.
 
 #### 3. `CampaignVault.sol` (Non-Custodial Escrow Vault)
 *   **Purpose**: Securely custody deposited `MockINR` tokens for a specific campaign.
@@ -155,12 +158,13 @@ classDiagram
     *   `releaseForMilestone(address to, uint256 amount)` is strictly protected by `onlyMilestoneManager`.
     *   The `milestoneManager` address is `immutable` (assigned at deployment in constructor). Organizers and platform admins have zero permission to withdraw or transfer funds directly.
 *   **Reentrancy Guard**: Inherits OpenZeppelin `ReentrancyGuard` on all state-modifying functions.
-*   **Emergency Circuit Breaker**: Organizer-gated `pause()` / `unpause()` mechanism to halt deposits in exceptional disaster-zone compromises.
+*   **Emergency Circuit Breaker**: Organizer-gated `pause()` / `unpause()` mechanism to halt deposits in exceptional disaster-zone compromises. It never blocks `close()` or `claimRefund()`, so a pause cannot trap donors.
+*   **Campaign Expiry & Donor Refunds**: The constructor takes `(token, organizer, manager, deadline, inactivityWindow)`; the vault keeps `donatedBy` / `totalDonated` per donor. Donations stop after the deadline. Anyone may call `close()` once `closableReason()` reports **Completed** (every milestone released, money left), **Deadline** (past the deadline) or **Inactivity** (no milestone *release* for the window, counted from creation or the last release; donations do not reset it). `close()` freezes the balance as `refundPool`; each donor then calls `claimRefund()` once for `refundPool * donatedBy / totalDonated` (rounding dust stays). A closed vault refuses `deposit` and `releaseForMilestone`; money already released is never clawed back. Emits `CampaignClosed(reason, refundPool)` and `RefundClaimed(donor, amount, newBalance)`. Only vaults from the current Factory have this.
 
 #### 4. `MilestoneManager.sol` (Governance & Multi-Party Orchestration)
 *   **Purpose**: Coordinates the state machine of all milestones across all deployed vaults.
 *   **State Machine**:
-    $$\text{Pending} \xrightarrow[\ge M \text{ Attestations}]{\text{submitAttestation}} \text{Verified} \xrightarrow[\text{If } > \text{AutoReleaseLimit}, \ge K \text{ Approvals}]{\text{approveCouncil}} \text{Released}$$
+    $$\text{Pending} \xrightarrow[\ge M \text{ Attestations}]{\text{submitAttestation}} \text{Verified} \xrightarrow[\text{If } > \text{AutoReleaseLimit}, \ge K \text{ Approvals}]{\text{councilApprove}} \text{Released}$$
 *   **Threshold Attestation Logic ($M$-of-$N$)**:
     *   Global pool of authorized field attestors (`isAttestor[address]`).
     *   Requires a minimum of 2 independent attestations (`MIN_REQUIRED_ATTESTATIONS = 2`).
@@ -212,7 +216,7 @@ flowchart LR
 *   **Implementation**:
     *   `foundry.toml` configures fuzzing to **10,000 runs per test** (`runs = 10000`), subjecting deposit math, percentage calculations, and authorization matrices to extreme boundary values.
     *   `Deploy.s.sol` orchestrates deterministic multi-contract deployments.
-    *   Slither, run across all six contracts together: 4 informational/low findings, 0 high, 0 medium (an uninitialized-local false positive, the documented "vault emits no event on release" design choice, and two deployer-controlled constructor params with no zero-address check — see `docs/PROGRESS_LOG.md`'s Module 4.3 entry).
+    *   Slither, run across all six contracts together: 8 informational/low findings (Slither 0.11.6, re-run 2026-10-27 after expiry was added; 4 before it, the 4 new ones are timestamp comparisons), 0 high, 0 medium (an uninitialized-local false positive, the documented "vault emits no event on release" design choice, and two deployer-controlled constructor params with no zero-address check — see `docs/PROGRESS_LOG.md`'s Module 4.3 entry).
 
 #### 2. Anvil (Local Ephemeral Node)
 *   **What it is**: A high-performance local Ethereum node bundled with Foundry.
@@ -315,13 +319,13 @@ To ensure absolute trust without centralizing authority, VERA implements a custo
 
 ```mermaid
 flowchart TD
-    Chain[Polygon Amoy Blockchain] -->|Fetch Logs: CampaignCreated, DonationReceived, MilestoneReleased| Reader[lib/chain/reader.ts]
+    Chain[Polygon Amoy Blockchain] -->|Fetch Logs: CampaignCreated, DonationReceived, CampaignClosed, RefundClaimed, manager / registry / disbursement events| Reader[lib/chain/reader.ts]
     Reader -->|2-Block Confirmation Depth| Filter[Reorg & RPC Halving Filter]
     Filter -->|Write Idempotent Event: txHash:logIndex| EventsTable[(SQLite: chain_events)]
     EventsTable -->|Update Cursor| CursorTable[(SQLite: indexer_cursors)]
     
     subgraph 3-Way Zero-Tolerance Reconciler
-        EventSum[Sum of Indexed Donations - Sum of Releases]
+        EventSum[Sum of Indexed Donations - Releases - Refunds]
         VaultBal[Vault Contract getBalance]
         TokenBal[MockINR Token Balance of Vault Address]
         
@@ -337,14 +341,14 @@ flowchart TD
 ```
 
 ### 6.1 Indexer Operation Mechanics
-*   **Event Streams**: Listens to `CampaignCreated`, `DonationReceived`, and `MilestoneReleased` events.
+*   **Event Streams**: Follows one Factory (`CampaignCreated`), each vault (`DonationReceived`, `CampaignClosed`, `RefundClaimed`), the `MilestoneManager` (definitions, attestations, council approvals, `MilestoneReleased`), the `BeneficiaryRegistry` (`BeneficiaryRegistered`) and `Disbursement` (`PayoutRecorded`). Each stream is optional and switched on by its address and start-block variables.
 *   **Confirmation Safety**: Only ingests blocks that are at least **2 blocks deep** to guarantee immunity against chain reorganizations.
 *   **Adaptive RPC Chunking**: Queries events in block chunks. If an RPC provider returns a timeout or range limit error, the chunk size automatically halves dynamically.
 *   **Idempotent Ingestion**: Events are uniquely keyed by `txHash:logIndex` preventing duplicate accounting on retries.
 
 ### 6.2 The 3-Way Zero-Tolerance Reconciliation Algorithm
 On every public ledger query, the system performs a triple-point verification:
-1.  **$A$ (Indexed Event Ledger)**: $\sum \text{DonationReceived} - \sum \text{MilestoneReleased}$ from SQLite `chain_events`.
+1.  **$A$ (Indexed Event Ledger)**: $\sum \text{DonationReceived} - \sum \text{MilestoneReleased} - \sum \text{RefundClaimed}$ from SQLite `chain_events`.
 2.  **$B$ (Smart Contract Escrow State)**: `CampaignVault.getBalance()` called directly via JSON-RPC.
 3.  **$C$ (ERC-20 Token Balance)**: `MockINR.balanceOf(vaultAddress)` called directly via JSON-RPC.
 
@@ -429,10 +433,15 @@ pnpm dev
 | **Milestone Under/Over-Allocation** | Strict check: $\sum \text{targetPct}_i == 100$ | `CampaignFactory.sol` & `validation.ts` |
 | **Direct Vault Draining** | `releaseForMilestone()` restricted strictly to immutable `MilestoneManager` | `CampaignVault.sol` |
 | **Single-Attestor Collusion** | Minimum 2 distinct attestors required per milestone | `MilestoneManager.sol` |
+| **Unverifiable Milestone (more confirmations required than attestors exist)** | The contract cannot count attestors, so campaign creation refuses `requiredAttestations` above the number of synced attestors (only when escrow is configured) | `lib/escrow/service.ts`, `POST /api/v1/campaigns` (app-level, not on-chain) |
 | **Self-Attestation by Organizer** | `msg.sender != organizer` enforced on-chain | `MilestoneManager.sol` |
-| **Large Disbursement Takeover** | Releases > 100 mINR require 3-of-5 Council approvals | `MilestoneManager.sol` |
+| **Large Disbursement Takeover** | Releases > 100 mINR require 3 Council approvals (`councilThreshold`). The limit is no longer fixed forever: the owner (the sponsor wallet) can change it through the admin console, but each milestone copies the limit when it is defined, so a change never loosens an existing milestone | `MilestoneManager.sol` (`setAutoReleaseLimit`), `lib/escrow/limits.ts`, `POST /api/v1/admin/release-limit` |
+| **Council Freeze / Council Dilution** | The owner can also change K (`setCouncilThreshold`, floor 2 on-chain) through the admin console. K is **not** snapshotted, so a change applies at once to releases already waiting; the console lists them first. The app refuses a K above the number of registered council members (the contract cannot count them), which would freeze large releases | `MilestoneManager.sol`, `lib/escrow/threshold.ts` (ceiling is app-level, not on-chain), `POST /api/v1/admin/council-threshold` |
 | **Ghost Beneficiary Duplication** | On-chain identity hash check per vault | `BeneficiaryRegistry.sol` |
+| **Fictitious Beneficiary, contract-enforced** *(built, tested and deployed on Amoy 2026-11-06; not yet used by the running app)* | `BeneficiaryRegistryV2.attestBeneficiary` lets only a manager-registered attestor (never the vault's organizer, once each) confirm a registered beneficiary; `DisbursementV2.disburse` reverts `BeneficiaryNotVerified` unless `registry.isVerified` (count >= the constructor-set requirement). Both are deployed on Amoy (registry `0xF1C72cF2D5722a837305424D1966BBBe7F73454a`, disbursement `0xba49F68CabB0389091B4767aedfFc90B182f7Bd2`) and were checked live, but the app is not switched to them; it can run against them with `BENEFICIARY_REGISTRY_V2=1`, but on the live system the row below is what actually protects it | `BeneficiaryRegistryV2.sol`, `DisbursementV2.sol` (28 tests, fuzz at 10,000 runs; Slither: no medium/high) |
+| **Fictitious Beneficiary** (registered people who do not exist) | An independent attestor must confirm the beneficiary exists (`BENEFICIARY_REQUIRED_ATTESTATIONS`, default 1) before `POST /api/v1/milestones/:id/disburse` will record a payout to them (409 `BENEFICIARY_NOT_VERIFIED`). The attestor types the identity detail in their own browser; only the salted fingerprint is sent. **This is enforced by the app and the database, not the chain:** `Disbursement.sol` still checks only `isRegistered`, so anyone calling the contract directly bypasses it. Contract enforcement is future scope C6 | `lib/beneficiary/attestation.ts`, `lib/disbursement/service.ts` (app-level, not on-chain) |
 | **Payout Exceeding What Was Released** | `disbursedTotal[vault] + amount <= manager.releasedTotal(vault)`, checked on-chain | `Disbursement.sol` |
 | **Double-Paying a Milestone** | `isDisbursed[vault][milestoneIndex]` set before the token transfer, checked first | `Disbursement.sol` |
+| **Funds Stranded in an Abandoned Campaign** | Deadline / inactivity / completion `close()` by anyone, then pro-rata `claimRefund()` per donor | `CampaignVault.sol` |
 | **Double Spending / Reentrancy** | OpenZeppelin `ReentrancyGuard` on all state-modifying escrow paths | `CampaignVault.sol` & `MilestoneManager.sol` |
 | **Silent Database Ledger Drift** | Continuous 3-way reconciliation comparing event logs to raw storage balances | `apps/web/lib/indexer/` |

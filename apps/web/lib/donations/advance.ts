@@ -18,6 +18,7 @@ const STEP_ERROR: Record<string, string> = {
   deposit: "We could not send the donation to the campaign.",
 };
 
+/** Options for advancing a donation one step: how long to wait for a just-sent transaction, the fee wallet (only when a fee applies) and an injectable clock for tests. */
 export interface AdvanceOptions {
   /** How long to wait for a just-sent transaction to be mined before returning "still pending". */
   waitMs: number;

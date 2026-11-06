@@ -1,10 +1,12 @@
 import type { Db } from "../db";
 import { freshness, type Freshness } from "../indexer/freshness";
 import { indexerStatus, reconcileVault, vaultLedger, vaultPayouts, vaultTotals, type LedgerEntry, type PayoutEntry } from "../indexer/queries";
+import { beneficiaryVerifiesOnChain, campaignVerification } from "../beneficiary/verification";
 import { syncWithinBudget, type IndexerRuntime } from "../indexer/runtime";
 import { getPublicProfile } from "../organizers/service";
 import { getCampaign, type CampaignWithMilestones } from "./service";
 
+/** Everything the public campaign page and the exports show: campaign, organizer, escrow totals, milestones, ledger events, expiry state and freshness of the indexed data. */
 export interface DashboardData {
   campaign: {
     id: string;
@@ -34,7 +36,15 @@ export interface DashboardData {
    * registry reverts on a repeat, so each is a distinct fingerprint. `registry` is its address, when
    * configured, so anyone can check the count themselves; the fingerprints hold no identity data.
    */
-  beneficiaries: { uniqueCount: number; registry: string | null };
+  beneficiaries: {
+    uniqueCount: number;
+    registry: string | null;
+    /**
+     * C5: of the beneficiaries registered on-chain, how many independent attestors have confirmed exist.
+     * Counts only (no fingerprints). Enforced by the app and database, not by a contract.
+     */
+    verification: { registered: number; verified: number; required: number; onChain: boolean };
+  };
   /**
    * Payouts to beneficiaries (FR-ESC-02), from indexed PayoutRecorded events: every one is a public
    * line item naming the milestone, the amount, the beneficiary's fingerprint and the hash of the
@@ -67,6 +77,7 @@ export interface DashboardData {
   generatedAt: string;
 }
 
+/** Where a campaign stands against its deadline and inactivity window, and whether it can be closed or refunded. */
 export interface ExpiryInfo {
   /** False for campaigns whose vault has no deadline (published before expiry existed): nothing below applies. */
   enabled: boolean;
@@ -126,6 +137,7 @@ export function buildExpiry(
 /** Why the chain comparison failed: the node no longer keeps state that old, no node answered, or something else. */
 export type UnavailableReason = "state_pruned" | "unreachable" | "other";
 
+/** Sorts a chain-comparison failure into pruned state, unreachable node, or other. */
 export function classifyReconcileError(err: unknown): UnavailableReason {
   const text = (err instanceof Error ? `${err.message} ${(err as { details?: string }).details ?? ""}` : String(err)).toLowerCase();
   if (/historical state|missing trie node|state .* is not available|pruned|header not found/.test(text)) return "state_pruned";
@@ -201,7 +213,11 @@ export async function buildDashboard(
       donationCount: totals.donationCount,
       goalReachedBps: goalReachedBps(donated, BigInt(campaign.fundingGoalMinorUnits)),
     },
-    beneficiaries: { uniqueCount: totals.beneficiaryCount, registry: runtime?.registryAddress ?? null },
+    beneficiaries: {
+      uniqueCount: totals.beneficiaryCount,
+      registry: runtime?.registryAddress ?? null,
+      verification: { ...campaignVerification(db, campaign.id), onChain: beneficiaryVerifiesOnChain() },
+    },
     payouts: { entries: vaultPayouts(db, vault), totalMinorUnits: totals.totalPaidOut, contract: runtime?.disbursementAddress ?? null },
     milestones: campaign.milestones,
     ledger,

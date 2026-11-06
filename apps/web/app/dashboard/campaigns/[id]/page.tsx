@@ -5,6 +5,7 @@ import { MilestoneCard } from "@/components/MilestoneCard";
 import { PageHead } from "@/components/PageHead";
 import { PayoutForm } from "@/components/PayoutForm";
 import { PublishCampaignButton } from "@/components/PublishCampaignButton";
+import { attestationCounts, beneficiaryRequiredAttestations } from "@/lib/beneficiary/verification";
 import { CATEGORY_LABEL } from "@/lib/campaigns/ceilings";
 import { formatMinorUnits } from "@/lib/campaigns/money";
 import { requirePageUser } from "@/lib/campaigns/page-guard";
@@ -28,6 +29,7 @@ const CHAIN_COPY = {
   failed: "Publishing failed. Your campaign is safe and you can try again.",
 } as const;
 
+/** Organizer's workspace for one campaign (owner or admin only): publish, define milestones, register beneficiaries, request payouts, and track each milestone. */
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { db, user } = await requirePageUser();
@@ -41,14 +43,21 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const views = live ? await viewsForCampaign(db, chain, id) : [];
   const showViews = live && views.length > 0 && unregistered.length === 0;
   const payoutsOn = disbursementChain().configured();
-  const payable = db
+  const registered = db
     .select()
     .from(beneficiaries)
     .where(eq(beneficiaries.campaignId, id))
     .orderBy(asc(beneficiaries.createdAt))
     .all()
-    .filter((b) => b.chainStatus === "CONFIRMED")
-    .map((b) => ({ id: b.id, identityHash: b.identityHash, payoutMethod: b.payoutMethod }));
+    .filter((b) => b.chainStatus === "CONFIRMED");
+  const confirmedBy = attestationCounts(db, registered.map((b) => b.id));
+  const requiredBy = beneficiaryRequiredAttestations();
+  const payable = registered.map((b) => ({
+    id: b.id,
+    identityHash: b.identityHash,
+    payoutMethod: b.payoutMethod,
+    verified: (confirmedBy.get(b.id) ?? 0) >= requiredBy,
+  }));
   // What the manager released per milestone, as the indexer saw it; only a suggestion for the amount field.
   const releasedAmounts = new Map(
     live && campaign.vaultContractAddress

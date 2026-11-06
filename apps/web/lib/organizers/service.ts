@@ -6,6 +6,7 @@ import type { ChainSyncResult } from "../chain/factory";
 import { saveDocument } from "../files/service";
 import type { ApplicationInput } from "./validation";
 
+/** An organizer application's verification status. */
 export type KybStatus = OrganizerProfileRow["kybStatus"];
 
 /** Shape returned to the applicant and admins. */
@@ -36,21 +37,25 @@ export interface PublicOrganizerProfile {
   verifiedAt: string | null;
 }
 
+/** Thrown when a user who already applied (or is verified) applies again. */
 export class AlreadyAppliedError extends Error {
   constructor(public status: KybStatus) {
     super(status === "verified" ? "You are already a verified organizer" : "Your application is already under review");
   }
 }
+/** Thrown when an organizer application does not exist. */
 export class ProfileNotFoundError extends Error {
   constructor() {
     super("Organizer application not found");
   }
 }
+/** Thrown when an action needs a verified organizer and the user is not one. */
 export class OrganizerNotVerifiedError extends Error {
   constructor(public status: KybStatus | "none") {
     super("Only verified organizers can do this");
   }
 }
+/** Thrown when an admin decides an application that was already decided. */
 export class AlreadyReviewedError extends Error {
   constructor(public status: KybStatus) {
     super(`This application was already ${status}`);
@@ -77,6 +82,7 @@ function toProfile(row: OrganizerProfileRow): OrganizerProfile {
   };
 }
 
+/** The organizer profile for a user, or null if they have not applied. */
 export function getProfileByUser(db: Db, userId: string): OrganizerProfile | null {
   const row = db.select().from(organizerProfiles).where(eq(organizerProfiles.userId, userId)).get();
   return row ? toProfile(row) : null;
@@ -128,8 +134,10 @@ export function submitApplication(db: Db, userId: string, input: ApplicationInpu
   return saved;
 }
 
+/** An organizer profile plus the applicant's email and wallet, as admins see it. */
 export type AdminProfileView = OrganizerProfile & { email: string; walletAddress: string };
 
+/** All applications, newest first, optionally filtered by status; for the admin queue. */
 export function listProfiles(db: Db, status?: KybStatus): AdminProfileView[] {
   const rows = db
     .select({ profile: organizerProfiles, email: users.email, walletAddress: users.walletAddress })
@@ -141,6 +149,7 @@ export function listProfiles(db: Db, status?: KybStatus): AdminProfileView[] {
   return rows.map((r) => ({ ...toProfile(r.profile), email: r.email, walletAddress: r.walletAddress }));
 }
 
+/** One application by profile id with applicant details, or null. */
 export function getProfileById(db: Db, profileId: string): AdminProfileView | null {
   const row = db
     .select({ profile: organizerProfiles, email: users.email, walletAddress: users.walletAddress })
@@ -186,6 +195,7 @@ export function decide(
   return updated;
 }
 
+/** Stores the result of pushing an organizer's verification to the chain. */
 export function recordChainSync(db: Db, profileId: string, result: ChainSyncResult): void {
   db.update(organizerProfiles)
     .set({

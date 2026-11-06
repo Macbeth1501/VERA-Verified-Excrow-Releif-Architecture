@@ -1,3 +1,5 @@
+/** Integration tests for `GET /api/v1/documents/:id`: who may download an uploaded document. */
+
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";

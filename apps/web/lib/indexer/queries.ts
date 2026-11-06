@@ -2,6 +2,7 @@ import type { Db } from "../db";
 import { allCursors, eventsForVault, knownVaults } from "./store";
 import type { ChainReader, EventName } from "./types";
 
+/** One line of a campaign's public ledger: an indexed on-chain event with its block, transaction, actor and amount. */
 export interface LedgerEntry {
   /** Unique per event: txHash:logIndex. */
   id: string;
@@ -17,6 +18,7 @@ export interface LedgerEntry {
   amount: string | null;
 }
 
+/** Figures derived from a vault's indexed events (donated, released, refunded, counts, indexed block). Never stored. */
 export interface VaultTotals {
   vault: string;
   /** Sum of all indexed donations, in mINR minor units. Derived, never stored. */
@@ -45,6 +47,7 @@ const ACTOR_KEY: Partial<Record<EventName, string>> = {
   RefundClaimed: "donor",
   CampaignCreated: "organizer",
   MilestoneAttested: "attestor",
+  BeneficiaryAttested: "attestor",
   CouncilApproved: "member",
   MilestoneReleased: "recipient",
   PayoutRecorded: "organizer",
@@ -87,7 +90,7 @@ export interface PayoutEntry {
  * each fingerprint is already public on the registry, and the ledger's columns are for actors and amounts.
  */
 export function vaultLedger(db: Db, vault: string): LedgerEntry[] {
-  return eventsForVault(db, vault).filter((e) => e.eventName !== "BeneficiaryRegistered").map((e) => {
+  return eventsForVault(db, vault).filter((e) => e.eventName !== "BeneficiaryRegistered" && e.eventName !== "BeneficiaryAttested").map((e) => {
     const args = JSON.parse(e.args) as Record<string, string>;
     const indexArg = MILESTONE_INDEX_ARG[e.eventName];
     return {
@@ -123,6 +126,7 @@ export function vaultPayouts(db: Db, vault: string): PayoutEntry[] {
     });
 }
 
+/** Sums a vault's indexed events into its totals. */
 export function vaultTotals(db: Db, vault: string): VaultTotals {
   const events = eventsForVault(db, vault);
   const sum = (name: EventName) =>
@@ -158,6 +162,7 @@ export function vaultTotals(db: Db, vault: string): VaultTotals {
   };
 }
 
+/** How far the indexer has read: indexed-through block, chain head, lag, vaults tracked and last update. */
 export interface IndexerStatus {
   /** Lowest block that every stream has been read through: all data is complete up to here. */
   indexedThroughBlock: number | null;
@@ -187,6 +192,7 @@ export async function indexerStatus(db: Db, reader: Pick<ChainReader, "headBlock
   };
 }
 
+/** Result of comparing the indexed balance against the vault's own accounting and the token balance at one block. */
 export interface ReconciliationRow {
   vault: string;
   checkedAtBlock: number;
@@ -202,6 +208,7 @@ export interface ReconciliationRow {
   match: boolean;
 }
 
+/** Result of checking indexed payouts against releases and the Disbursement contract's own total. */
 export interface PayoutCheck {
   /** Every stream involved has been read through this block; both sides are counted up to it. */
   checkedAtBlock: number;

@@ -2,6 +2,7 @@ import { apiError } from "../api/errors";
 import { allow, clientKey } from "../api/rate-limit";
 import type { EscrowFailure } from "./service";
 
+/** Maps a milestone service failure to the standard API error response. */
 export const escrowError = (f: EscrowFailure) => apiError(f.status, f.code, f.message);
 
 /** Mutating escrow routes share one bucket per client: 10 requests, refilling one every 3 seconds. */

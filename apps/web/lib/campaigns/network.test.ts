@@ -1,3 +1,5 @@
+/** Unit tests for the network-wide totals across published campaigns. */
+
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb, type Db } from "../db";
 import { VAULT, makeLiveCampaign } from "../donations/test-setup";

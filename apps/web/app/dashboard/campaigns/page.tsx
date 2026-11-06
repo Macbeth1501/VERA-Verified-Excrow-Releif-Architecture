@@ -7,6 +7,7 @@ import { requirePageOrganizer } from "@/lib/campaigns/page-guard";
 
 export const metadata = { title: "Your campaigns | VERA" };
 
+/** Lists the signed-in organizer's own campaigns, with a link to create a new one. */
 export default async function CampaignsPage() {
   const { db, profile } = await requirePageOrganizer();
   const campaigns = listByOrganizer(db, profile.id);
